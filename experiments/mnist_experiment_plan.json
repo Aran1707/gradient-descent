@@ -1,0 +1,37 @@
+{
+  "dataset": "MNIST from tensorflow tf-keras-datasets mnist.npz as used in uploaded train.py",
+  "model": "uploaded NumPy CNN: Conv-ReLU-Pool, Conv-ReLU-Pool-Dropout, Dense-ReLU-Dropout, Dense-10",
+  "comparison_policy": [
+    "same train/validation split",
+    "same initialization per seed",
+    "same batch order per seed",
+    "same number of optimizer steps"
+  ],
+  "optimizers": [
+    "SGD",
+    "SGD+Momentum",
+    "Nesterov",
+    "AdaGrad",
+    "RMSProp",
+    "Adam",
+    "AdamW",
+    "Lion (bonus)",
+    "SAM wrapper (advanced, expensive)"
+  ],
+  "recommended_first_run": {
+    "train_limit": 10000,
+    "val_size": 2000,
+    "batch_size": 64,
+    "epochs": 3,
+    "seeds": [
+      0,
+      1,
+      2
+    ]
+  },
+  "notes": [
+    "Disable dropout in first controlled comparison, then repeat with original dropout.",
+    "Do not evaluate on the official test set every epoch; use validation, then final test once.",
+    "NumPy will not use RTX GPU by default."
+  ]
+}
