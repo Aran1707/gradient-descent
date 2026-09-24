@@ -9,7 +9,10 @@ PROJECT_PLAN.md              Full plan, timeline, teaching strategy
 docs/                        Math notes, slide structure, talk script, experiments
 figures/png/                 Ready-to-insert PNG figures
 figures/svg/                 Editable vector figures
-src/toy/                     Toy optimizer code for 2D demos
+figures/gif/                 Focused optimizer animations
+scripts/                     Reproducible figure generators
+src/optimizers/              Shared NumPy optimizer implementations
+src/landscapes/              2D objectives and optimizer trajectory code
 src/user_numpy_cnn/          Your uploaded NumPy CNN files copied here
 experiments/                 Suggested experiment configs
 README.md                    This file
@@ -28,3 +31,32 @@ README.md                    This file
 ## Important correction
 
 `f(x,y)=x^2+25y^2` is **not** a local-minimum trap example. It is a convex, ill-conditioned quadratic with one global minimum at `(0,0)`. Use it for oscillation, divergence, zigzagging and slow convergence. Use the double-well example in the docs for local vs global minima.
+
+## Current code entry points
+
+The CNN now takes its update rule from `src/optimizers/` instead of keeping
+Adam state inside trainable layers:
+
+```bash
+python src/user_numpy_cnn/train.py --optimizer adam
+python src/user_numpy_cnn/train.py --optimizer sgd --lr 0.03
+python src/user_numpy_cnn/train.py --optimizer adamw --weight-decay 1e-4
+python src/user_numpy_cnn/train.py --optimizer rmsprop --disable-dropout
+```
+
+The figure generators write to `figures/generated/` by default:
+
+```bash
+python scripts/plot_landscapes.py
+python scripts/plot_optimizer_trajectories.py
+python scripts/plot_cnn_architecture.py
+python scripts/generate_seminar_figures.py
+python scripts/generate_optimizer_gifs.py --all
+python scripts/generate_cnn_propagation_gif.py
+```
+
+The first three commands write focused outputs to `figures/generated/`. The
+fourth regenerates all ten prepared PNG/SVG assets in `figures/png/` and
+`figures/svg/`. The final command writes one focused GIF per optimizer to
+`figures/gif/`. Use `--output-dir` on the focused commands when you want to
+keep generated outputs outside the repository's prepared figure assets.

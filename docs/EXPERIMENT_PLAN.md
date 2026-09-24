@@ -6,7 +6,7 @@ Compare optimizer behavior without accidentally changing the model, data or trai
 
 ## First controlled experiment
 
-Use the toy functions first. They are more useful for teaching than raw MNIST accuracy because students can see the path.
+Use the objective landscapes first. They are more useful for teaching than raw MNIST accuracy because students can see the path.
 
 - Function 1: `x^2+y^2`
 - Function 2: `x^2+25y^2`
@@ -23,7 +23,10 @@ Use your uploaded NumPy CNN.
 python train.py --epochs 3 --batch-size 64 --lr 5e-4 --train-limit 10000 --test-limit 2000
 ```
 
-But for optimizer comparison, refactor optimizer logic first. Your current `step()` methods implement Adam directly inside `Conv2D` and `Dense`.
+The optimizer refactor is now available through `--optimizer`; use
+`--disable-dropout` for the first controlled comparison. The current loop
+still needs the validation split and structured metrics work below before
+results should be treated as final evidence.
 
 ### Changes before serious comparison
 

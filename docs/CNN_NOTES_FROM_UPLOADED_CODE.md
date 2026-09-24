@@ -37,16 +37,24 @@ Dense(128 → 10)
 
 Approximate trainable parameters: 206,922.
 
-## Important design note for optimizer seminar
+## Optimizer separation
 
-The current trainable layers implement Adam inside `step()`.
+The trainable layers now only store parameters and backpropagated gradients.
+Update state lives in `src/optimizers/`, and `CNNModel.step(optimizer)` applies
+the selected rule through the shared parameter iterator.
 
-For a clean optimizer comparison, separate these responsibilities:
+The command-line switch selects the implementation:
 
-- Layers store parameters and gradients.
-- Optimizer owns update state and performs parameter updates.
+```bash
+python src/user_numpy_cnn/train.py --optimizer adam
+python src/user_numpy_cnn/train.py --optimizer momentum
+python src/user_numpy_cnn/train.py --optimizer adamw --weight-decay 1e-4
+```
 
-See `src/optimizer_interface_sketch.py`.
+Supported choices include SGD, momentum, Nesterov, AdaGrad, RMSProp, Adam,
+AdamW, and Lion. The current training loop still evaluates on the test set
+after each epoch; the train/validation/test experiment protocol remains a
+later step.
 
 ## How to use this in the seminar
 

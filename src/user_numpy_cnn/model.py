@@ -45,7 +45,9 @@ def preprocess_image(image_path, invert=None, preserve_aspect=True):
 
 
 class DigitRecognizer:
-    def __init__(self, model_path=DEFAULT_MODEL_PATH, invert=None, preserve_aspect=True):
+    def __init__(
+        self, model_path=DEFAULT_MODEL_PATH, invert=None, preserve_aspect=True
+    ):
         self.model_path = Path(model_path)
         self.invert = invert
         self.preserve_aspect = preserve_aspect

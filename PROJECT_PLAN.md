@@ -69,9 +69,9 @@ of unrelated optimizer formulas.
    in the main story because it is a natural momentum extension. Lion, SAM,
    L-BFGS, and Muon are appendix or bonus material unless the instructor
    explicitly requests more modern optimizer coverage.
-7. **Do not claim that a toy trajectory proves universal optimizer superiority.**
-   Toy surfaces teach mechanisms; controlled MNIST experiments show how those
-   mechanisms behave in one concrete model and data setting.
+7. **Do not claim that a 2D trajectory proves universal optimizer superiority.**
+   Objective landscapes teach mechanisms; controlled MNIST experiments show how
+   those mechanisms behave in one concrete model and data setting.
 
 ## 3. Learning objectives
 
@@ -117,18 +117,34 @@ gradient-descent/
 │   ├── CNN_NOTES_FROM_UPLOADED_CODE.md
 │   └── SOURCES.md
 ├── figures/
+│   ├── gif/
 │   ├── png/
 │   └── svg/
 ├── experiments/
 │   └── mnist_experiment_plan.json
+├── scripts/
+│   ├── generate_cnn_propagation_gif.py
+│   ├── generate_optimizer_gifs.py
+│   ├── generate_seminar_figures.py
+│   ├── plot_cnn_architecture.py
+│   ├── plot_landscapes.py
+│   └── plot_optimizer_trajectories.py
 ├── data/
 │   └── generated trajectories and metrics; intentionally empty after cleanup
 ├── assets/
 │   └── reserved for slide/deck assets; currently empty
 └── src/
-    ├── optimizer_interface_sketch.py
-    ├── toy/
-    │   └── toy_optimizers.py
+    ├── optimizers/
+    │   ├── adaptive.py
+    │   ├── base.py
+    │   ├── factory.py
+    │   └── first_order.py
+    ├── landscapes/
+    │   ├── objectives.py
+    │   └── optimizers.py
+    ├── visualization/
+    │   ├── animations.py
+    │   └── seminar_figures.py
     └── user_numpy_cnn/
         ├── model.py
         └── train.py
@@ -152,11 +168,17 @@ gradient-descent/
 | `docs/SOURCES.md` | Further reading and external references | Present |
 | `figures/png/` | Slide-ready raster figures | Preserved reusable assets |
 | `figures/svg/` | Editable vector versions of the figures | Preserved reusable assets |
+| `figures/gif/` | Focused one-optimizer-at-a-time animations | Present |
 | `experiments/mnist_experiment_plan.json` | Machine-readable experiment policy | Present |
+| `scripts/` | Reproducible landscape, trajectory, CNN architecture, full figure-set, and GIF generators | Present |
 | `data/` | Regenerated trajectories, metrics, and run outputs | Empty by design after cleanup |
-| `src/toy/toy_optimizers.py` | Small, visible 2D optimizer simulator | Partial prototype |
-| `src/optimizer_interface_sketch.py` | Proposed common parameter/gradient optimizer interface | Educational sketch |
-| `src/user_numpy_cnn/train.py` | Original NumPy CNN, data loading, training, and inference model saving | Preserved original implementation |
+| `src/optimizer_interface_sketch.py` | Historical educational sketch of the optimizer interface | Superseded by `src/optimizers/` |
+| `src/optimizers/` | Shared parameter-update implementations and named optimizer factory | Present |
+| `src/landscapes/objectives.py` | Named 2D objectives and analytical gradients | Present |
+| `src/landscapes/optimizers.py` | Small, visible 2D optimizer trajectory runner | Present |
+| `src/visualization/animations.py` | Shared restrained animation builder for individual optimizers | Present |
+| `src/visualization/seminar_figures.py` | Shared slide-sized builders for all ten prepared figures | Present |
+| `src/user_numpy_cnn/train.py` | NumPy CNN, data loading, training, optimizer selection, and inference model saving | Refactored |
 | `src/user_numpy_cnn/model.py` | Inference wrapper for saved CNN models and handwritten images | Preserved original implementation |
 
 The empty `data/` directory is not a missing source file. It is the output
@@ -167,7 +189,7 @@ outputs remain in the package.
 
 ### What was removed
 
-The following generated toy trajectories were deleted because they can be
+The following generated 2D trajectories were deleted because they can be
 regenerated and should not be mistaken for final experimental evidence:
 
 ```text
@@ -181,7 +203,7 @@ data/traj_nesterov.csv
 data/traj_rmsprop.csv
 ```
 
-Each file contained only an `x,y` trajectory from a toy optimizer run. No
+Each file contained only an `x,y` trajectory from a 2D optimizer run. No
 teaching directions, source code, mathematical notes, experiment plans, or
 figures were removed.
 
@@ -191,12 +213,12 @@ figures were removed.
 - The generated PNG and SVG figures, including the architecture diagram and
   the training-loss template.
 - The original NumPy CNN source.
-- The toy optimizer source and optimizer-interface sketch.
+- The 2D landscape source and optimizer-interface sketch.
 - The machine-readable MNIST experiment plan.
 - The source and checksum information used to download MNIST.
 
 The preserved figures are reusable teaching assets, but any figure derived from
-the deleted trajectories should be treated as preliminary until the toy
+the deleted trajectories should be treated as preliminary until the 2D
 experiments are regenerated and checked against the current implementation.
 The `10_training_loss_template` figure is a template, not a result.
 
@@ -206,7 +228,7 @@ Future runs should keep a clear distinction:
 
 - **Source/directions:** code, markdown, JSON configuration, and editable SVG
   assets.
-- **Generated outputs:** CSV/NPZ metrics, toy trajectories, rendered result
+- **Generated outputs:** CSV/NPZ metrics, 2D trajectories, rendered result
   plots, downloaded datasets, model checkpoints, and run logs.
 - **Final presentation assets:** figures or tables selected only after the
   corresponding run has passed the reproducibility and evaluation checks.
@@ -238,7 +260,7 @@ appendix so the live lecture remains teachable.
 | 59–64 min | Prediction exercise | Make students compute or predict the next point | Reveal the answer after discussion |
 | 64–79 min | SGD and momentum | Separate gradient estimation from gradient transformation | Mini-batch formula and momentum trajectory |
 | 79–96 min | Adaptive optimizers | Explain coordinate-wise scaling and bias correction | AdaGrad, RMSProp, Adam, and AdamW |
-| 96–108 min | Toy optimizer comparison | Compare identical starts, surfaces, axes, and budgets | Synchronized contour plots |
+| 96–108 min | Optimizer comparison | Compare identical starts, surfaces, axes, and budgets | Synchronized contour plots |
 | 108–114 min | NumPy CNN application | Connect backpropagation to optimizer updates | Architecture and code-level separation |
 | 114–120 min | Takeaways and Q&A | Check understanding and discuss limitations | Summary slide and questions |
 
@@ -474,27 +496,28 @@ cross-entropy, MNIST loading, and `.npz` model saving.
 
 ### Current implementation limitations
 
-The original implementation is intentionally preserved, but it is not yet a
-clean multi-optimizer experiment engine:
+The first optimizer-refactor slice is now implemented:
 
-- `Conv2D` and `Dense` own Adam-like state and update themselves inside
-  `step()`.
+- `Conv2D` and `Dense` expose parameters and gradients only.
+- `src/optimizers/` owns update state and supports named SGD, momentum,
+  Nesterov, AdaGrad, RMSProp, Adam, AdamW, and Lion implementations.
+- `train.py --optimizer NAME` selects the update rule; `--disable-dropout`
+  supports an initial controlled comparison.
+- `scripts/plot_landscapes.py`, `scripts/plot_optimizer_trajectories.py`,
+  and `scripts/plot_cnn_architecture.py` generate the first reusable teaching
+  figures.
+
+The remaining experiment-engine limitations are:
+
 - The model evaluates on the official test data after every epoch.
 - There is no train/validation split in the current training loop.
 - The current loop prints selected batch losses and epoch test accuracy but
   does not write structured per-step CSV/NPZ metrics.
-- Dropout is enabled during normal training, which adds stochastic variation
-  to optimizer comparisons.
 - The current code decays the learning rate by multiplying it by `0.95` after
   each epoch.
 - The default MNIST cache is `src/user_numpy_cnn/data/mnist.npz`, not the
   seminar-level `data/` directory.
 - NumPy operations do not automatically use the machine's NVIDIA GPU.
-
-The `src/optimizer_interface_sketch.py` file shows the intended separation:
-layers expose parameters and gradients, while the optimizer owns state and
-updates parameters. It currently sketches SGD, Momentum, and Adam; it is not
-yet the completed training backend.
 
 ### Educational message
 
@@ -516,7 +539,7 @@ full convolution derivations and gradient checks in the appendix or repository.
 
 Before comparing optimizers:
 
-1. Check the analytical gradient of the toy functions against finite
+1. Check the analytical gradient of the objective functions against finite
    differences where appropriate.
 2. Verify that the simple bowl decreases for a small stable learning rate.
 3. Verify that the ill-conditioned example exhibits the predicted oscillation
@@ -525,7 +548,7 @@ Before comparing optimizers:
    unrelated state.
 5. Run a tiny CNN forward/backward smoke test and check that loss is finite.
 
-### Stage 1 — toy surfaces
+### Stage 1 — objective landscapes
 
 Use:
 
@@ -614,10 +637,10 @@ without also reporting the quality reached.
 
 The order below keeps the mathematics and experiments aligned.
 
-### Phase A — Rebuild the toy pipeline
+### Phase A — Build the objective-landscape pipeline
 
-1. Keep `src/toy/toy_optimizers.py` as the small, readable teaching module.
-2. Add the missing toy optimizer implementations only when their classroom
+1. Keep `src/landscapes/optimizers.py` as the small, readable teaching module.
+2. Add the missing optimizer implementations only when their classroom
    role is defined.
 3. Add the nonconvex and saddle objectives.
 4. Add deterministic trajectory export with explicit configuration.
@@ -626,10 +649,11 @@ The order below keeps the mathematics and experiments aligned.
 
 ### Phase B — Separate CNN parameters from optimization
 
-1. Define a common parameter/gradient iterator.
-2. Move optimizer state out of `Conv2D` and `Dense`.
+1. Define a common parameter/gradient iterator. **Completed.**
+2. Move optimizer state out of `Conv2D` and `Dense`. **Completed.**
 3. Implement optimizer objects with explicit state keyed to parameters.
-4. Preserve model forward and backward behavior.
+   **Completed.**
+4. Preserve model forward and backward behavior. **Completed by smoke check.**
 5. Add focused finite-difference and shape checks.
 6. Confirm that the Adam refactor matches the original behavior within an
    explicitly documented tolerance.
@@ -642,12 +666,12 @@ The order below keeps the mathematics and experiments aligned.
 4. Add a run configuration/manifest.
 5. Add repeated-seed execution.
 6. Support dropout-disabled controlled runs.
-7. Keep model checkpoints and MNIST cache outside the seminar toy-output
+7. Keep model checkpoints and MNIST cache outside the seminar 2D-output
    directory unless a run explicitly needs to package them.
 
 ### Phase D — Produce the seminar package
 
-1. Select final toy trajectories after checks pass.
+1. Select final objective trajectories after checks pass.
 2. Select a small, defensible CNN comparison.
 3. Render training and validation plots.
 4. Write the slide deck and speaker notes around the verified results.
@@ -703,7 +727,7 @@ is changed.
 
 ### Technical deliverables
 
-- Reproducible toy trajectory generator.
+- Reproducible objective-landscape trajectory generator.
 - Common optimizer interface for the CNN.
 - Controlled MNIST experiment configuration.
 - Metrics files with run metadata.
@@ -730,7 +754,7 @@ The package is ready for presentation when:
 - the ill-conditioned example is not described as local-minimum trapping;
 - the nonconvex and saddle examples are visibly separate;
 - each main optimizer is introduced as a response to a concrete problem;
-- toy plots use verified, reproducible trajectories;
+- objective plots use verified, reproducible trajectories;
 - the CNN comparison separates backpropagation from optimizer updates;
 - test data is not used as an every-epoch tuning signal;
 - metrics include validation behavior and multiple seeds;

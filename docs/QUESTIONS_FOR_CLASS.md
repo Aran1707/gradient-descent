@@ -37,4 +37,4 @@ Answer:
 
 1. If an optimizer trains faster but generalizes worse, is it better?
 2. Why should we compare optimizers across multiple random seeds?
-3. Why might a 2D toy result not transfer directly to a neural network?
+3. Why might a 2D landscape result not transfer directly to a neural network?

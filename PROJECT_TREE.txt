@@ -12,6 +12,16 @@ gradient_descent_seminar_package/
     SOURCES.md
     TALK_SCRIPT.md
   figures/
+    gif/
+      cnn_forward_backward.gif
+      gradient_descent.gif
+      momentum.gif
+      nesterov.gif
+      adagrad.gif
+      rmsprop.gif
+      adam.gif
+      adamw.gif
+      lion.gif
     svg/
       01_gradient_field_sphere.svg
       02_surface_sphere_3d.svg
@@ -36,13 +46,32 @@ gradient_descent_seminar_package/
       10_training_loss_template.png
   experiments/
     mnist_experiment_plan.json
+  scripts/
+    generate_cnn_propagation_gif.py
+    generate_optimizer_gifs.py
+    generate_seminar_figures.py
+    plot_cnn_architecture.py
+    plot_landscapes.py
+    plot_optimizer_trajectories.py
   data/
     (generated trajectories and metrics; intentionally empty after cleanup)
   assets/
   src/
     optimizer_interface_sketch.py
-    toy/
-      toy_optimizers.py
+    optimizers/
+      __init__.py
+      adaptive.py
+      base.py
+      factory.py
+      first_order.py
+    visualization/
+      __init__.py
+      animations.py
+      seminar_figures.py
+    landscapes/
+      __init__.py
+      objectives.py
+      optimizers.py
     user_numpy_cnn/
       model.py
       train.py
