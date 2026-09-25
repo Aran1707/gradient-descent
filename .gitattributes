@@ -1,0 +1,2 @@
+# Ensure trajectory CSVs are byte-reproducible with LF endings across all platforms
+data/*.csv text eol=lf

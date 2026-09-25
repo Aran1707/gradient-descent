@@ -13,9 +13,10 @@ Implements Stage 0 checks and Phase B verification from PROJECT_PLAN.md:
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
+
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,31 +24,45 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from landscapes.objectives import OBJECTIVES, double_well, ill_conditioned, saddle, sphere
+from landscapes.objectives import OBJECTIVES, ill_conditioned, sphere
 from landscapes.optimizers import (
     SGD as ToySGD,
-    Momentum as ToyMomentum,
-    Nesterov as ToyNesterov,
+)
+from landscapes.optimizers import (
     AdaGrad as ToyAdaGrad,
-    RMSProp as ToyRMSProp,
+)
+from landscapes.optimizers import (
     Adam as ToyAdam,
+)
+from landscapes.optimizers import (
     AdamW as ToyAdamW,
+)
+from landscapes.optimizers import (
     Lion as ToyLion,
+)
+from landscapes.optimizers import (
+    Momentum as ToyMomentum,
+)
+from landscapes.optimizers import (
+    Nesterov as ToyNesterov,
+)
+from landscapes.optimizers import (
+    RMSProp as ToyRMSProp,
+)
+from landscapes.optimizers import (
     build_toy_optimizer,
+)
+from landscapes.optimizers import (
     run as run_toy,
 )
 from optimizers import (
-    AdaGrad,
+    SAM,
+    SGD,
     Adam,
     AdamW,
     Lion,
-    Momentum,
-    Nesterov,
-    SAM,
-    SGD,
     build_optimizer,
     build_sam_optimizer,
-    iter_trainable_params,
     optimizer_names,
 )
 from user_numpy_cnn.train import CNNModel
@@ -253,6 +268,35 @@ class TestCNNOptimizers(unittest.TestCase):
         expected_final = p_orig - 0.1 * g2
         np.testing.assert_allclose(p, expected_final, rtol=1e-5)
 
+    def test_sam_factory_helpers(self):
+        """SAM factory helper should handle SAM aliases and existing SAM instances cleanly."""
+        # Alias "sam" maps to base SGD
+        sam_default = build_sam_optimizer("sam")
+        self.assertIsInstance(sam_default, SAM)
+        self.assertIsInstance(sam_default.base_optimizer, SGD)
+
+        # Alias "sam-sgd" maps to base SGD
+        sam_sgd = build_sam_optimizer("sam-sgd")
+        self.assertIsInstance(sam_sgd, SAM)
+        self.assertIsInstance(sam_sgd.base_optimizer, SGD)
+
+        # Alias "sam-adam" maps to base Adam
+        sam_adam = build_sam_optimizer("sam-adam")
+        self.assertIsInstance(sam_adam, SAM)
+        self.assertIsInstance(sam_adam.base_optimizer, Adam)
+
+        # Direct optimizer name "adam" maps to base Adam
+        sam_adam2 = build_sam_optimizer("adam")
+        self.assertIsInstance(sam_adam2, SAM)
+        self.assertIsInstance(sam_adam2.base_optimizer, Adam)
+
+        # Passing existing SAM un-wraps cleanly without nesting SAM inside SAM
+        existing_sam = build_optimizer("sam", lr=1e-3)
+        sam_wrapped = build_sam_optimizer(existing_sam)
+        self.assertIsInstance(sam_wrapped, SAM)
+        self.assertIsInstance(sam_wrapped.base_optimizer, SGD)
+        self.assertNotIsInstance(sam_wrapped.base_optimizer, SAM)
+
 
 class TestCNNSmoke(unittest.TestCase):
     """Test tiny forward, backward, and optimization step on NumPy CNN."""
@@ -300,7 +344,7 @@ class TestCNNSmoke(unittest.TestCase):
 
         # Pass 1
         logits1 = model.forward(X)
-        loss1 = model.loss_fn.forward(logits1, y)
+        _ = model.loss_fn.forward(logits1, y)
         model.backward(y)
         sam_opt.first_step(model.parameters())
 
@@ -316,7 +360,7 @@ class TestCNNSmoke(unittest.TestCase):
         self.assertTrue(np.isfinite(loss3))
 
     def test_evaluate_loss_and_acc(self):
-        from user_numpy_cnn.train import evaluate_loss_and_acc, evaluate
+        from user_numpy_cnn.train import evaluate, evaluate_loss_and_acc
         model = CNNModel(use_dropout=False)
         X = np.random.randn(8, 1, 28, 28).astype(np.float32)
         y = np.random.randint(0, 10, size=8)
@@ -329,13 +373,66 @@ class TestCNNSmoke(unittest.TestCase):
         self.assertLessEqual(acc, 1.0)
         self.assertEqual(acc, acc_legacy)
 
+    def test_multi_seed_experiments_artifacts(self):
+        """Multi-seed experiments should save distinct per-seed files and aggregate metrics."""
+        import json
+        import tempfile
+        from unittest.mock import patch
+
+        from user_numpy_cnn.train import run_multi_seed_experiments
+
+        dummy_x_train = np.random.randn(8, 1, 28, 28).astype(np.float32)
+        dummy_y_train = np.random.randint(0, 10, size=8)
+        dummy_x_test = np.random.randn(4, 1, 28, 28).astype(np.float32)
+        dummy_y_test = np.random.randint(0, 10, size=4)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            model_path = tmppath / "model.npz"
+            metrics_path = tmppath / "metrics.json"
+
+            with patch(
+                "user_numpy_cnn.train.load_mnist",
+                return_value=(dummy_x_train, dummy_y_train, dummy_x_test, dummy_y_test),
+            ):
+                summary = run_multi_seed_experiments(
+                    seeds=(0, 1),
+                    model_path=model_path,
+                    metrics_path=metrics_path,
+                    epochs=1,
+                    batch_size=4,
+                    val_size=0,
+                )
+
+            # Check per-seed model artifacts exist
+            self.assertTrue((tmppath / "model_seed_0.npz").exists())
+            self.assertTrue((tmppath / "model_seed_1.npz").exists())
+
+            # Check per-seed metrics artifacts exist
+            self.assertTrue((tmppath / "metrics_seed_0.json").exists())
+            self.assertTrue((tmppath / "metrics_seed_1.json").exists())
+
+            # Check aggregate metrics artifact exists and has correct structure
+            self.assertTrue(metrics_path.exists())
+            with metrics_path.open("r", encoding="utf-8") as f:
+                saved_summary = json.load(f)
+
+            self.assertEqual(saved_summary["seeds"], [0, 1])
+            self.assertIn("mean_test_acc", saved_summary)
+            self.assertIn("std_test_acc", saved_summary)
+            self.assertIn("mean_test_loss", saved_summary)
+            self.assertIn("std_test_loss", saved_summary)
+            self.assertEqual(len(saved_summary["results"]), 2)
+            self.assertEqual(summary["mean_test_acc"], saved_summary["mean_test_acc"])
+
 
 class TestTrajectoryExport(unittest.TestCase):
     """Test trajectory export script logic."""
 
     def test_export_trajectories_generates_valid_csv(self):
-        import tempfile
         import csv
+        import tempfile
+
         from scripts.export_trajectories import TRAJECTORY_CONFIGS, export_trajectory
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -355,6 +452,21 @@ class TestTrajectoryExport(unittest.TestCase):
                 self.assertEqual(first_row[0], 0)
                 self.assertAlmostEqual(first_row[1], 2.8)
                 self.assertAlmostEqual(first_row[2], 1.0)
+
+    def test_export_trajectories_byte_reproducible_lf(self):
+        """Exported trajectory CSVs must strictly use LF line endings for byte reproducibility."""
+        import tempfile
+
+        from scripts.export_trajectories import TRAJECTORY_CONFIGS, export_trajectory
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            cfg = TRAJECTORY_CONFIGS["gd"]
+            meta = export_trajectory("gd", cfg, "ill-conditioned", (2.8, 1.0), tmppath)
+            csv_path = tmppath / meta["file"]
+
+            content_bytes = csv_path.read_bytes()
+            self.assertNotIn(b"\r", content_bytes, "CSV file should use LF line endings, not CRLF")
 
 
 if __name__ == "__main__":

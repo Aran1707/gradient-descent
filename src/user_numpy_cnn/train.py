@@ -1,11 +1,11 @@
-import numpy as np
 import hashlib
 import json
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 from urllib.request import urlretrieve
 
+import numpy as np
 
 PROJECT_DIR = Path(__file__).resolve().parent
 SRC_DIR = PROJECT_DIR.parent
@@ -13,7 +13,6 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from optimizers import SAM, build_optimizer, iter_trainable_params, optimizer_names
-
 
 DEFAULT_DATA_DIR = PROJECT_DIR / "data"
 DEFAULT_MODEL_PATH = PROJECT_DIR / "cnn-model.npz"
@@ -642,30 +641,74 @@ def start_training(
     return model, history
 
 
-def run_multi_seed_experiments(seeds=(0, 1, 2), **kwargs):
-    """Run controlled experiment protocol across multiple seeds and report statistics."""
+def run_multi_seed_experiments(
+    seeds=(0, 1, 2),
+    model_path=DEFAULT_MODEL_PATH,
+    metrics_path=None,
+    **kwargs,
+):
+    """Run controlled experiment protocol across multiple seeds and report statistics.
+
+    Saves distinct per-seed model artifacts (e.g. cnn-model_seed_0.npz) and per-seed
+    metrics files (e.g. metrics_seed_0.json), followed by an aggregate summary.
+    """
     results = []
+    base_model_path = Path(model_path) if model_path is not None else None
+    base_metrics_path = Path(metrics_path) if metrics_path is not None else None
+
     for s in seeds:
         print(f"\n{'=' * 20} Running Seed {s} {'=' * 20}")
-        _, hist = start_training(seed=s, **kwargs)
+        seed_model_path = (
+            base_model_path.with_name(f"{base_model_path.stem}_seed_{s}{base_model_path.suffix}")
+            if base_model_path is not None
+            else None
+        )
+        seed_metrics_path = (
+            base_metrics_path.with_name(f"{base_metrics_path.stem}_seed_{s}{base_metrics_path.suffix}")
+            if base_metrics_path is not None
+            else None
+        )
+
+        _, hist = start_training(
+            seed=s,
+            model_path=seed_model_path,
+            metrics_path=seed_metrics_path,
+            **kwargs,
+        )
         results.append(hist)
 
     test_accs = [r["final_test_acc"] for r in results]
     mean_acc = float(np.mean(test_accs))
     std_acc = float(np.std(test_accs))
 
+    test_losses = [r["final_test_loss"] for r in results]
+    mean_loss = float(np.mean(test_losses))
+    std_loss = float(np.std(test_losses))
+
     print(f"\n{'=' * 20} Multi-Seed Experiment Summary ({len(seeds)} seeds) {'=' * 20}")
     print(f"Optimizer: {results[0]['optimizer']}")
-    for idx, (s, acc) in enumerate(zip(seeds, test_accs)):
-        print(f"  Seed {s}: Test Accuracy = {acc:.4f}")
+    for idx, (s, acc) in enumerate(zip(seeds, test_accs, strict=True)):
+        print(f"  Seed {s}: Test Accuracy = {acc:.4f} | Test Loss = {test_losses[idx]:.4f}")
     print(f"Mean Test Accuracy: {mean_acc:.4f} +/- {std_acc:.4f}")
+    print(f"Mean Test Loss: {mean_loss:.4f} +/- {std_loss:.4f}")
 
-    return {
+    summary = {
+        "optimizer": results[0]["optimizer"],
         "seeds": list(seeds),
-        "results": results,
         "mean_test_acc": mean_acc,
         "std_test_acc": std_acc,
+        "mean_test_loss": mean_loss,
+        "std_test_loss": std_loss,
+        "results": results,
     }
+
+    if base_metrics_path is not None:
+        base_metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        with base_metrics_path.open("w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+        print(f"Aggregate multi-seed metrics saved to {base_metrics_path}")
+
+    return summary
 
 
 def parse_args():

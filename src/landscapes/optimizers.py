@@ -6,32 +6,15 @@ SGD, Momentum, Nesterov, AdaGrad, RMSProp, Adam, AdamW, and Lion.
 
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
+
 import numpy as np
 
 try:
-    from .objectives import (
-        OBJECTIVES,
-        double_well,
-        grad_double_well,
-        grad_ill_conditioned,
-        grad_saddle,
-        grad_sphere,
-        ill_conditioned,
-        saddle,
-        sphere,
-    )
+    from .objectives import grad_ill_conditioned
 except ImportError:  # Supports running this file directly as a teaching script.
     from objectives import (
-        OBJECTIVES,
-        double_well,
-        grad_double_well,
         grad_ill_conditioned,
-        grad_saddle,
-        grad_sphere,
-        ill_conditioned,
-        saddle,
-        sphere,
     )
 
 

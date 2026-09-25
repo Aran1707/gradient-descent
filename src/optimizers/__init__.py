@@ -3,7 +3,7 @@
 from .adaptive import AdaGrad, Adam, AdamW, Lion, RMSProp
 from .base import Optimizer, iter_trainable_params
 from .factory import build_optimizer, build_sam_optimizer, optimizer_names
-from .first_order import Momentum, Nesterov, SGD
+from .first_order import SGD, Momentum, Nesterov
 from .sam import SAM
 
 __all__ = [

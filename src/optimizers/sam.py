@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
+
 import numpy as np
 
 from .base import Optimizer, Parameter

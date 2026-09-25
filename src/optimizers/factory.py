@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from .adaptive import AdaGrad, Adam, AdamW, Lion, RMSProp
 from .base import Optimizer
-from .first_order import Momentum, Nesterov, SGD
+from .first_order import SGD, Momentum, Nesterov
 from .sam import SAM
-
 
 _ALIASES = {
     "sgd": "sgd",
@@ -32,14 +31,23 @@ def optimizer_names() -> tuple[str, ...]:
 
 
 def build_sam_optimizer(
-    base: str | Optimizer,
+    base: str | Optimizer | SAM,
     lr: float = 1e-3,
     rho: float = 0.05,
     **kwargs,
 ) -> SAM:
     """Build a SAM wrapper around a named or existing optimizer."""
     if isinstance(base, str):
-        base_opt = build_optimizer(base, lr=lr, **kwargs)
+        normalized = base.strip().lower().replace("_", "-").replace("+", "-")
+        if normalized in ("sam", "sam-sgd"):
+            base_name = "sgd"
+        elif normalized.startswith("sam-"):
+            base_name = normalized[4:]
+        else:
+            base_name = normalized
+        base_opt = build_optimizer(base_name, lr=lr, **kwargs)
+    elif isinstance(base, SAM):
+        base_opt = base.base_optimizer
     elif isinstance(base, Optimizer):
         base_opt = base
     else:

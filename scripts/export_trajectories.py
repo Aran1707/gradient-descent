@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +20,6 @@ if str(SRC_DIR) not in sys.path:
 
 from landscapes.objectives import OBJECTIVES
 from optimizers import build_optimizer
-
 
 TRAJECTORY_CONFIGS: dict[str, dict[str, Any]] = {
     "gd": {
@@ -117,7 +116,7 @@ def export_trajectory(
 
     csv_path = output_dir / cfg["filename"]
     with csv_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["step", "x", "y", "loss"])
         for row in records:
             writer.writerow(row)
