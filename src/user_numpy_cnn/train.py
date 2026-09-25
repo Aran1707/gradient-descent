@@ -1,5 +1,6 @@
 import numpy as np
 import hashlib
+import json
 from pathlib import Path
 import sys
 import time
@@ -11,7 +12,7 @@ SRC_DIR = PROJECT_DIR.parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from optimizers import build_optimizer, iter_trainable_params, optimizer_names
+from optimizers import SAM, build_optimizer, iter_trainable_params, optimizer_names
 
 
 DEFAULT_DATA_DIR = PROJECT_DIR / "data"
@@ -408,7 +409,8 @@ def load_mnist(data_dir=DEFAULT_DATA_DIR):
     return X_train, y_train, X_test, y_test
 
 
-def evaluate(model, X, y, batch_size=64):
+def evaluate_loss_and_acc(model, X, y, batch_size=64):
+    """Compute average loss and classification accuracy."""
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
     if len(X) != len(y):
@@ -419,6 +421,7 @@ def evaluate(model, X, y, batch_size=64):
     was_training = model.training
     model.eval()
     total_correct = 0
+    total_loss = 0.0
     total = 0
 
     try:
@@ -427,15 +430,23 @@ def evaluate(model, X, y, batch_size=64):
             y_batch = y[start : start + batch_size]
 
             logits = model.forward(X_batch)
+            loss = model.loss_fn.forward(logits, y_batch)
             preds = np.argmax(logits, axis=1)
 
-            total_correct += np.sum(preds == y_batch)
+            total_loss += float(loss) * len(y_batch)
+            total_correct += int(np.sum(preds == y_batch))
             total += len(y_batch)
     finally:
         if was_training:
             model.train()
 
-    return total_correct / total
+    return total_loss / total, total_correct / total
+
+
+def evaluate(model, X, y, batch_size=64):
+    """Compute classification accuracy (preserved for backwards compatibility)."""
+    _, acc = evaluate_loss_and_acc(model, X, y, batch_size)
+    return acc
 
 
 def start_training(
@@ -447,9 +458,14 @@ def start_training(
     model_path=DEFAULT_MODEL_PATH,
     train_limit=None,
     test_limit=None,
+    val_size=2000,
     optimizer_name="adam",
     dropout=True,
     weight_decay=0.0,
+    lr_decay=0.95,
+    rho=0.05,
+    metrics_path=None,
+    save_model=True,
 ):
     if epochs <= 0:
         raise ValueError("epochs must be positive")
@@ -457,6 +473,8 @@ def start_training(
         raise ValueError("batch_size must be positive")
     if lr <= 0:
         raise ValueError("lr must be positive")
+    if val_size is not None and val_size < 0:
+        raise ValueError("val_size must be non-negative")
     if train_limit is not None and train_limit <= 0:
         raise ValueError("train_limit must be positive")
     if test_limit is not None and test_limit <= 0:
@@ -465,54 +483,189 @@ def start_training(
         raise ValueError("optimizer_name must be a non-empty string")
     if weight_decay < 0:
         raise ValueError("weight_decay must be non-negative")
+    if lr_decay <= 0 or lr_decay > 1.0:
+        raise ValueError("lr_decay must be in (0, 1]")
 
     if seed is not None:
         np.random.seed(seed)
 
-    X_train, y_train, X_test, y_test = load_mnist(data_dir)
+    X_train_raw, y_train_raw, X_test_raw, y_test_raw = load_mnist(data_dir)
+
+    # Separate training data into training and validation splits
+    if val_size and val_size > 0 and len(X_train_raw) > val_size:
+        X_val = X_train_raw[-val_size:]
+        y_val = y_train_raw[-val_size:]
+        X_pool = X_train_raw[:-val_size]
+        y_pool = y_train_raw[:-val_size]
+    else:
+        X_val, y_val = None, None
+        X_pool = X_train_raw
+        y_pool = y_train_raw
+
     if train_limit is not None:
-        X_train, y_train = X_train[:train_limit], y_train[:train_limit]
+        X_train, y_train = X_pool[:train_limit], y_pool[:train_limit]
+    else:
+        X_train, y_train = X_pool, y_pool
+
     if test_limit is not None:
-        X_test, y_test = X_test[:test_limit], y_test[:test_limit]
+        X_test, y_test = X_test_raw[:test_limit], y_test_raw[:test_limit]
+    else:
+        X_test, y_test = X_test_raw, y_test_raw
+
     model = CNNModel(use_dropout=dropout)
-    optimizer = build_optimizer(optimizer_name, lr, weight_decay=weight_decay)
+    optimizer = build_optimizer(optimizer_name, lr, weight_decay=weight_decay, rho=rho)
+    is_sam = isinstance(optimizer, SAM)
     num_batches = (len(X_train) + batch_size - 1) // batch_size
 
-    print(f"\nTraining with {optimizer_name}")
+    print(
+        f"\nTraining with optimizer: {optimizer_name} | "
+        f"train samples: {len(X_train)} | val samples: {len(X_val) if X_val is not None else 0} | "
+        f"test samples: {len(X_test)} | seed: {seed}"
+    )
+
+    history = {
+        "optimizer": optimizer_name,
+        "lr_initial": lr,
+        "lr_decay": lr_decay,
+        "weight_decay": weight_decay,
+        "rho": rho if is_sam else None,
+        "seed": seed,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "train_samples": len(X_train),
+        "val_samples": len(X_val) if X_val is not None else 0,
+        "test_samples": len(X_test),
+        "epoch_metrics": [],
+    }
+
+    start_total_time = time.time()
 
     for epoch in range(epochs):
         indices = np.random.permutation(len(X_train))
-        start_time = time.time()
+        epoch_start_time = time.time()
+        running_loss = 0.0
+        running_correct = 0
+        samples_seen = 0
 
         for batch_number, start in enumerate(range(0, len(X_train), batch_size)):
             batch_indices = indices[start : start + batch_size]
             X_batch = X_train[batch_indices]
             y_batch = y_train[batch_indices]
 
-            logits = model.forward(X_batch)
-            loss = model.loss_fn.forward(logits, y_batch)
+            if is_sam:
+                # SAM step 1: forward & backward at current w
+                logits = model.forward(X_batch)
+                loss = model.loss_fn.forward(logits, y_batch)
+                model.backward(y_batch)
+                optimizer.first_step(model.parameters())
 
-            model.backward(y_batch)
-            model.step(optimizer)
+                # SAM step 2: forward & backward at perturbed w + e
+                logits_perturbed = model.forward(X_batch)
+                _ = model.loss_fn.forward(logits_perturbed, y_batch)
+                model.backward(y_batch)
+                optimizer.second_step(model.parameters())
+            else:
+                logits = model.forward(X_batch)
+                loss = model.loss_fn.forward(logits, y_batch)
+                model.backward(y_batch)
+                model.step(optimizer)
+
+            batch_correct = int(np.sum(np.argmax(logits, axis=1) == y_batch))
+            running_loss += float(loss) * len(y_batch)
+            running_correct += batch_correct
+            samples_seen += len(y_batch)
 
             if batch_number % 50 == 0:
-                acc = np.mean(np.argmax(logits, axis=1) == y_batch)
+                acc = batch_correct / len(y_batch)
                 print(
                     f"Epoch {epoch + 1}/{epochs} | Batch {batch_number}/{num_batches} | "
                     f"Loss: {loss:.4f} | Acc: {acc:.4f}"
                 )
 
-        optimizer.lr *= 0.95
-        print(
-            f"Epoch {epoch + 1} completed in {time.time() - start_time:.2f} seconds. "
-            f"Next lr: {optimizer.lr:.6g}"
-        )
+        train_loss = running_loss / samples_seen
+        train_acc = running_correct / samples_seen
+        epoch_duration = time.time() - epoch_start_time
 
-        test_acc = evaluate(model, X_test, y_test, batch_size)
-        print(f"Test Accuracy: {test_acc:.4f}")
+        # Update learning rate if decay is specified
+        current_lr = optimizer.lr
+        if lr_decay != 1.0:
+            optimizer.lr *= lr_decay
 
-    model.save(model_path)
-    return model
+        metric_entry = {
+            "epoch": epoch + 1,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "lr": current_lr,
+            "duration_sec": epoch_duration,
+        }
+
+        # Evaluate on validation split after each epoch
+        if X_val is not None and len(X_val) > 0:
+            val_loss, val_acc = evaluate_loss_and_acc(model, X_val, y_val, batch_size)
+            metric_entry["val_loss"] = val_loss
+            metric_entry["val_acc"] = val_acc
+            print(
+                f"Epoch {epoch + 1} completed in {epoch_duration:.2f}s | "
+                f"Train Loss: {train_loss:.4f}, Acc: {train_acc:.4f} | "
+                f"Val Loss: {val_loss:.4f}, Acc: {val_acc:.4f}"
+            )
+        else:
+            print(
+                f"Epoch {epoch + 1} completed in {epoch_duration:.2f}s | "
+                f"Train Loss: {train_loss:.4f}, Acc: {train_acc:.4f}"
+            )
+
+        history["epoch_metrics"].append(metric_entry)
+
+    # Scientific evaluation: evaluate official test set only ONCE at the end
+    test_loss, test_acc = evaluate_loss_and_acc(model, X_test, y_test, batch_size)
+    total_time = time.time() - start_total_time
+    history["final_test_loss"] = test_loss
+    history["final_test_acc"] = test_acc
+    history["total_duration_sec"] = total_time
+
+    print(
+        f"\nFinal Test Loss: {test_loss:.4f} | Final Test Accuracy: {test_acc:.4f} | "
+        f"Total training time: {total_time:.2f}s"
+    )
+
+    if save_model:
+        model.save(model_path)
+
+    if metrics_path is not None:
+        metrics_file = Path(metrics_path)
+        metrics_file.parent.mkdir(parents=True, exist_ok=True)
+        with metrics_file.open("w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2)
+        print(f"Metrics saved to {metrics_file}")
+
+    return model, history
+
+
+def run_multi_seed_experiments(seeds=(0, 1, 2), **kwargs):
+    """Run controlled experiment protocol across multiple seeds and report statistics."""
+    results = []
+    for s in seeds:
+        print(f"\n{'=' * 20} Running Seed {s} {'=' * 20}")
+        _, hist = start_training(seed=s, **kwargs)
+        results.append(hist)
+
+    test_accs = [r["final_test_acc"] for r in results]
+    mean_acc = float(np.mean(test_accs))
+    std_acc = float(np.std(test_accs))
+
+    print(f"\n{'=' * 20} Multi-Seed Experiment Summary ({len(seeds)} seeds) {'=' * 20}")
+    print(f"Optimizer: {results[0]['optimizer']}")
+    for idx, (s, acc) in enumerate(zip(seeds, test_accs)):
+        print(f"  Seed {s}: Test Accuracy = {acc:.4f}")
+    print(f"Mean Test Accuracy: {mean_acc:.4f} +/- {std_acc:.4f}")
+
+    return {
+        "seeds": list(seeds),
+        "results": results,
+        "mean_test_acc": mean_acc,
+        "std_test_acc": std_acc,
+    }
 
 
 def parse_args():
@@ -522,6 +675,12 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument(
+        "--lr-decay",
+        type=float,
+        default=0.95,
+        help="learning rate multiplicative decay factor per epoch (default: 0.95)",
+    )
     parser.add_argument(
         "--optimizer",
         choices=optimizer_names(),
@@ -535,11 +694,23 @@ def parse_args():
         help="decoupled weight decay for AdamW",
     )
     parser.add_argument(
+        "--rho",
+        type=float,
+        default=0.05,
+        help="neighborhood perturbation radius for SAM",
+    )
+    parser.add_argument(
         "--disable-dropout",
         action="store_true",
         help="disable dropout for controlled optimizer comparisons",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--seeds",
+        type=str,
+        default=None,
+        help="comma-separated list of seeds for multi-seed evaluation (e.g. '0,1,2')",
+    )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
     parser.add_argument(
@@ -549,26 +720,63 @@ def parse_args():
         help="train on only the first N samples (useful for smoke runs)",
     )
     parser.add_argument(
+        "--val-size",
+        type=int,
+        default=2000,
+        help="number of validation samples split from training set (default: 2000)",
+    )
+    parser.add_argument(
         "--test-limit",
         type=int,
         default=None,
         help="evaluate on only the first N test samples (useful for smoke runs)",
+    )
+    parser.add_argument(
+        "--metrics-file",
+        type=Path,
+        default=None,
+        help="optional path to write JSON run metrics and history",
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    start_training(
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        lr=args.lr,
-        seed=args.seed,
-        data_dir=args.data_dir,
-        model_path=args.model,
-        train_limit=args.train_limit,
-        test_limit=args.test_limit,
-        optimizer_name=args.optimizer,
-        dropout=not args.disable_dropout,
-        weight_decay=args.weight_decay,
-    )
+
+    if args.seeds is not None:
+        seed_list = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
+        run_multi_seed_experiments(
+            seeds=seed_list,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            lr=args.lr,
+            lr_decay=args.lr_decay,
+            data_dir=args.data_dir,
+            model_path=args.model,
+            train_limit=args.train_limit,
+            test_limit=args.test_limit,
+            val_size=args.val_size,
+            optimizer_name=args.optimizer,
+            dropout=not args.disable_dropout,
+            weight_decay=args.weight_decay,
+            rho=args.rho,
+            metrics_path=args.metrics_file,
+        )
+    else:
+        start_training(
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            lr=args.lr,
+            lr_decay=args.lr_decay,
+            seed=args.seed,
+            data_dir=args.data_dir,
+            model_path=args.model,
+            train_limit=args.train_limit,
+            test_limit=args.test_limit,
+            val_size=args.val_size,
+            optimizer_name=args.optimizer,
+            dropout=not args.disable_dropout,
+            weight_decay=args.weight_decay,
+            rho=args.rho,
+            metrics_path=args.metrics_file,
+        )
