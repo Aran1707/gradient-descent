@@ -52,6 +52,11 @@ def build_sam_optimizer(
         base_opt = base
     else:
         raise TypeError("base must be a string optimizer name or an Optimizer instance")
+
+    while isinstance(base_opt, SAM):
+        base_opt = base_opt.base_optimizer
+    if not isinstance(base_opt, Optimizer):
+        raise TypeError("base must resolve to an Optimizer instance")
     return SAM(base_opt, rho=rho)
 
 

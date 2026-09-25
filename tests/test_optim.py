@@ -339,7 +339,7 @@ class TestCNNSmoke(unittest.TestCase):
         X = np.random.randn(4, 1, 28, 28).astype(np.float32)
         y = np.array([1, 2, 0, 3], dtype=np.int64)
 
-        base_opt = build_optimizer("sgd", lr=1e-2)
+        base_opt = SGD(lr=1e-2)
         sam_opt = SAM(base_opt, rho=0.05)
 
         # Pass 1

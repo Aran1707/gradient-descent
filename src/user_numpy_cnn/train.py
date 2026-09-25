@@ -69,7 +69,7 @@ def col2im_indices(cols, x_shape, field_height=3, field_width=3, padding=1, stri
 
     cols_reshaped = cols.reshape(C * field_height * field_width, -1, N)
     cols_reshaped = cols_reshaped.transpose(2, 0, 1)
-    np.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)
+    np.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)  # pyright: ignore[reportArgumentType]
 
     if padding == 0:
         return x_padded
@@ -364,7 +364,7 @@ class CNNModel:
             raise ValueError("model files must use the .npz extension")
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.eval()
-        np.savez_compressed(filepath, **self.state_dict())
+        np.savez_compressed(filepath, **self.state_dict())  # pyright: ignore[reportArgumentType]
         print(f"Model saved to {filepath}")
 
 
@@ -671,7 +671,8 @@ def run_multi_seed_experiments(
 
         _, hist = start_training(
             seed=s,
-            model_path=seed_model_path,
+            model_path=seed_model_path or DEFAULT_MODEL_PATH,
+            save_model=(seed_model_path is not None),
             metrics_path=seed_metrics_path,
             **kwargs,
         )

@@ -135,7 +135,7 @@ class Adam:
         self.t = 0
 
     def step(self, theta: np.ndarray, grad: np.ndarray) -> np.ndarray:
-        if self.m is None:
+        if self.m is None or self.v is None:
             self.m = np.zeros_like(theta)
             self.v = np.zeros_like(theta)
         self.t += 1
