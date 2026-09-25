@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gradient-descent-seminar"
+version = "0.1.0"
+description = "CS115 seminar package: gradient descent, optimizer variants, NumPy CNN on MNIST"
+requires-python = ">=3.10"
+dependencies = ["numpy>=2.0", "matplotlib>=3.8", "Pillow>=10"]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["optimizers", "landscapes", "visualization", "user_numpy_cnn"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]
+"tests/*" = ["E402"]
+"src/user_numpy_cnn/train.py" = ["E402"]

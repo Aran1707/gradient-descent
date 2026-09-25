@@ -6,8 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageOps
-
-from train import CNNModel, DEFAULT_MODEL_PATH, MODEL_FORMAT_VERSION, PROJECT_DIR
+from train import DEFAULT_MODEL_PATH, MODEL_FORMAT_VERSION, PROJECT_DIR, CNNModel
 
 
 class RedirectUnpickler(pickle.Unpickler):
