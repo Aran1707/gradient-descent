@@ -66,6 +66,8 @@ gradient_descent_seminar_package/
     trajectories_manifest.json
   tests/
     test_optim.py
+  presentation/
+    index.html
   assets/
   src/
     optimizer_interface_sketch.py
