@@ -135,6 +135,8 @@
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+
+
     /* Main Slide Deck Canvas */
     main {
       flex: 1;
@@ -428,6 +430,63 @@
       font-size: 0.72rem;
       color: var(--text-muted);
     }
+
+    @media print {
+      @page {
+        size: 16in 9in;
+        margin: 0;
+      }
+
+      html,
+      body {
+        width: 16in;
+        min-height: 0;
+        height: auto;
+        overflow: visible;
+        background: var(--bg-main) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      header,
+      footer,
+      .app-header,
+      .controls,
+      .progress-bar-container,
+      .help-modal,
+      .zoom-overlay {
+        display: none !important;
+      }
+
+      main {
+        display: block;
+        padding: 0;
+        overflow: visible;
+      }
+
+      .slide,
+      .slide.active {
+        position: relative;
+        inset: auto;
+        display: flex;
+        width: 16in;
+        height: 9in;
+        box-sizing: border-box;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+        page-break-after: always;
+        break-after: page;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      .slide:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+    }
   </style>
 </head>
 <body>
@@ -440,7 +499,7 @@
     </div>
     <div class="controls">
       <button class="btn" id="btn-prev" title="Previous Slide (← / Backspace)">◀ Prev</button>
-      <span class="slide-counter" id="slide-indicator">1 / 25</span>
+      <span class="slide-counter" id="slide-indicator">1 / 20</span>
       <button class="btn" id="btn-next" title="Next Slide (→ / Space)">Next ▶</button>
       <button class="btn" id="btn-overview" title="Toggle Slide Grid (O)">⊞ Grid</button>
       <button class="btn" id="btn-fullscreen" title="Fullscreen (F)">⛶ Fullscreen</button>
