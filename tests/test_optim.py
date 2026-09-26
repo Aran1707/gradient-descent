@@ -373,6 +373,11 @@ class TestCNNSmoke(unittest.TestCase):
         self.assertLessEqual(acc, 1.0)
         self.assertEqual(acc, acc_legacy)
 
+    def test_packaged_inference_module_imports(self):
+        import user_numpy_cnn.model as inference_model
+
+        self.assertTrue(hasattr(inference_model, "DigitRecognizer"))
+
     def test_multi_seed_experiments_artifacts(self):
         """Multi-seed experiments should save distinct per-seed files and aggregate metrics."""
         import json
@@ -424,6 +429,41 @@ class TestCNNSmoke(unittest.TestCase):
             self.assertIn("std_test_loss", saved_summary)
             self.assertEqual(len(saved_summary["results"]), 2)
             self.assertEqual(summary["mean_test_acc"], saved_summary["mean_test_acc"])
+
+    def test_multi_seed_experiments_reject_invalid_seed_lists(self):
+        from user_numpy_cnn.train import run_multi_seed_experiments
+
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            run_multi_seed_experiments(seeds=())
+        with self.assertRaisesRegex(ValueError, "unique"):
+            run_multi_seed_experiments(seeds=(0, 0))
+        with self.assertRaisesRegex(ValueError, "integers"):
+            run_multi_seed_experiments(seeds=(0, True))
+
+    def test_sam_reuses_dropout_masks_between_passes(self):
+        np.random.seed(7)
+        model = CNNModel(use_dropout=True)
+        X = np.random.randn(4, 1, 28, 28).astype(np.float32)
+
+        model.reuse_dropout_masks(False)
+        model.forward(X)
+        first_masks = [
+            layer.mask.copy()
+            for layer in model.layers
+            if hasattr(layer, "reuse_mask")
+        ]
+
+        model.reuse_dropout_masks(True)
+        model.forward(X)
+        second_masks = [
+            layer.mask.copy()
+            for layer in model.layers
+            if hasattr(layer, "reuse_mask")
+        ]
+
+        self.assertEqual(len(first_masks), 2)
+        for first, second in zip(first_masks, second_masks, strict=True):
+            np.testing.assert_array_equal(first, second)
 
 
 class TestTrajectoryExport(unittest.TestCase):

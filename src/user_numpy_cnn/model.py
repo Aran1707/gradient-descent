@@ -6,7 +6,11 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageOps
-from train import DEFAULT_MODEL_PATH, MODEL_FORMAT_VERSION, PROJECT_DIR, CNNModel
+
+try:
+    from .train import DEFAULT_MODEL_PATH, MODEL_FORMAT_VERSION, PROJECT_DIR, CNNModel
+except ImportError:
+    from train import DEFAULT_MODEL_PATH, MODEL_FORMAT_VERSION, PROJECT_DIR, CNNModel
 
 
 class RedirectUnpickler(pickle.Unpickler):

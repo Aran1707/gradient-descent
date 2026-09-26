@@ -52,9 +52,9 @@ python src/user_numpy_cnn/train.py --optimizer adamw --weight-decay 1e-4
 ```
 
 Supported choices include SGD, momentum, Nesterov, AdaGrad, RMSProp, Adam,
-AdamW, and Lion. The current training loop still evaluates on the test set
-after each epoch; the train/validation/test experiment protocol remains a
-later step.
+AdamW, Lion, and SAM aliases. The training loop now keeps a validation split
+for per-epoch monitoring, evaluates the official test set once at the end, and
+can write structured JSON metrics and repeated-seed summaries.
 
 ## How to use this in the seminar
 

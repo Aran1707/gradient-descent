@@ -509,10 +509,8 @@ The first optimizer-refactor slice is now implemented:
 
 The remaining experiment-engine limitations are:
 
-- The model evaluates on the official test data after every epoch.
-- There is no train/validation split in the current training loop.
-- The current loop prints selected batch losses and epoch test accuracy but
-  does not write structured per-step CSV/NPZ metrics.
+- The current loop writes structured epoch-level JSON metrics rather than
+  per-step CSV/NPZ metrics.
 - The current code decays the learning rate by multiplying it by `0.95` after
   each epoch.
 - The default MNIST cache is `src/user_numpy_cnn/data/mnist.npz`, not the

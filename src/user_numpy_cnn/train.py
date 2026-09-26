@@ -200,9 +200,13 @@ class Dropout:
         self.rate = rate
         self.mask = None
         self.training = True  # flag to toggle between train/test modes
+        self.reuse_mask = False
 
     def forward(self, X):
         if self.training:
+            if self.reuse_mask and self.mask is not None:
+                return X * self.mask
+
             # create a binary mask using a binomial distribution
             # scale by 1 / (1 - rate) to keep the expected value of the activations consistent
             self.mask = np.random.binomial(1, 1 - self.rate, size=X.shape).astype(
@@ -300,6 +304,14 @@ class CNNModel:
                 layer.training = False
             if hasattr(layer, "mask"):
                 layer.mask = None
+            if hasattr(layer, "reuse_mask"):
+                layer.reuse_mask = False
+
+    def reuse_dropout_masks(self, enabled):
+        """Control whether the next training forward pass reuses dropout masks."""
+        for layer in self.layers:
+            if hasattr(layer, "reuse_mask"):
+                layer.reuse_mask = bool(enabled)
 
     def forward(self, X):
         for layer in self.layers:
@@ -553,16 +565,21 @@ def start_training(
 
             if is_sam:
                 # SAM step 1: forward & backward at current w
+                model.reuse_dropout_masks(False)
                 logits = model.forward(X_batch)
                 loss = model.loss_fn.forward(logits, y_batch)
                 model.backward(y_batch)
                 optimizer.first_step(model.parameters())
 
                 # SAM step 2: forward & backward at perturbed w + e
-                logits_perturbed = model.forward(X_batch)
-                _ = model.loss_fn.forward(logits_perturbed, y_batch)
-                model.backward(y_batch)
-                optimizer.second_step(model.parameters())
+                model.reuse_dropout_masks(True)
+                try:
+                    logits_perturbed = model.forward(X_batch)
+                    _ = model.loss_fn.forward(logits_perturbed, y_batch)
+                    model.backward(y_batch)
+                    optimizer.second_step(model.parameters())
+                finally:
+                    model.reuse_dropout_masks(False)
             else:
                 logits = model.forward(X_batch)
                 loss = model.loss_fn.forward(logits, y_batch)
@@ -652,11 +669,23 @@ def run_multi_seed_experiments(
     Saves distinct per-seed model artifacts (e.g. cnn-model_seed_0.npz) and per-seed
     metrics files (e.g. metrics_seed_0.json), followed by an aggregate summary.
     """
+    raw_seeds = tuple(seeds)
+    if not raw_seeds:
+        raise ValueError("seeds must contain at least one seed")
+    if any(
+        isinstance(seed, bool) or not isinstance(seed, (int, np.integer))
+        for seed in raw_seeds
+    ):
+        raise ValueError("seeds must be integers")
+    seed_values = tuple(int(seed) for seed in raw_seeds)
+    if len(set(seed_values)) != len(seed_values):
+        raise ValueError("seeds must be unique")
+
     results = []
     base_model_path = Path(model_path) if model_path is not None else None
     base_metrics_path = Path(metrics_path) if metrics_path is not None else None
 
-    for s in seeds:
+    for s in seed_values:
         print(f"\n{'=' * 20} Running Seed {s} {'=' * 20}")
         seed_model_path = (
             base_model_path.with_name(f"{base_model_path.stem}_seed_{s}{base_model_path.suffix}")
@@ -686,16 +715,16 @@ def run_multi_seed_experiments(
     mean_loss = float(np.mean(test_losses))
     std_loss = float(np.std(test_losses))
 
-    print(f"\n{'=' * 20} Multi-Seed Experiment Summary ({len(seeds)} seeds) {'=' * 20}")
+    print(f"\n{'=' * 20} Multi-Seed Experiment Summary ({len(seed_values)} seeds) {'=' * 20}")
     print(f"Optimizer: {results[0]['optimizer']}")
-    for idx, (s, acc) in enumerate(zip(seeds, test_accs, strict=True)):
+    for idx, (s, acc) in enumerate(zip(seed_values, test_accs, strict=True)):
         print(f"  Seed {s}: Test Accuracy = {acc:.4f} | Test Loss = {test_losses[idx]:.4f}")
     print(f"Mean Test Accuracy: {mean_acc:.4f} +/- {std_acc:.4f}")
     print(f"Mean Test Loss: {mean_loss:.4f} +/- {std_loss:.4f}")
 
     summary = {
         "optimizer": results[0]["optimizer"],
-        "seeds": list(seeds),
+        "seeds": list(seed_values),
         "mean_test_acc": mean_acc,
         "std_test_acc": std_acc,
         "mean_test_loss": mean_loss,
