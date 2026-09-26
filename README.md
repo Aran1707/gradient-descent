@@ -55,8 +55,24 @@ python scripts/generate_optimizer_gifs.py --all
 python scripts/generate_cnn_propagation_gif.py
 ```
 
-The first three commands write focused outputs to `figures/generated/`. The
+Deterministic 2D trajectory generation:
+
+```bash
+python scripts/export_trajectories.py
+```
+
+Running unit tests and mathematical correctness checks:
+
+```bash
+python -m unittest tests/test_optim.py
+```
+
+Interactive slide deck / visualization presentation:
+
+Open `presentation/index.html` in any web browser to view the synchronized seminar slides, formulas (KaTeX), 3D surfaces, and animated GIFs.
+
+The first three figure generator commands write focused outputs to `figures/generated/`. The
 fourth regenerates all ten prepared PNG/SVG assets in `figures/png/` and
-`figures/svg/`. The final command writes one focused GIF per optimizer to
+`figures/svg/`. The fifth command writes one focused GIF per optimizer to
 `figures/gif/`. Use `--output-dir` on the focused commands when you want to
 keep generated outputs outside the repository's prepared figure assets.

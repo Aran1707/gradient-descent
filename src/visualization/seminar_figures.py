@@ -7,16 +7,15 @@ the prepared assets remain reproducible and editable.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Callable, Iterable
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Rectangle
 import numpy as np
+from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Rectangle
 
-from optimizers import build_optimizer
 from landscapes.objectives import OBJECTIVES, grad_double_well
-
+from optimizers import build_optimizer
 
 FIGURE_SIZE = (12.8, 7.2)
 TITLE_SIZE = 24
@@ -60,8 +59,8 @@ OPTIMIZER_SETTINGS = {
 
 def _style_axes(ax, *, equal: bool = False) -> None:
     ax.tick_params(labelsize=TICK_SIZE)
-    ax.xaxis.label.set_size(LABEL_SIZE)
-    ax.yaxis.label.set_size(LABEL_SIZE)
+    ax.xaxis.label.set_fontsize(LABEL_SIZE)
+    ax.yaxis.label.set_fontsize(LABEL_SIZE)
     ax.grid(alpha=0.18)
     if equal:
         ax.set_aspect("equal", adjustable="box")
@@ -147,10 +146,12 @@ def optimizer_trajectory(
     optimizer = build_optimizer(name, learning_rate, weight_decay=weight_decay)
     trajectory = [theta.copy()]
     for _ in range(steps):
+        if not np.all(np.isfinite(theta)) or np.any(np.abs(theta) > 1e10):
+            break
         gradient = np.asarray(gradient_fn(theta), dtype=float)
         optimizer.step(((theta, gradient, "theta"),))
         trajectory.append(theta.copy())
-        if not np.all(np.isfinite(theta)):
+        if not np.all(np.isfinite(theta)) or np.any(np.abs(theta) > 1e10):
             break
     return np.asarray(trajectory)
 
@@ -248,16 +249,16 @@ def make_surface(
         antialiased=True,
         alpha=0.95,
     )
-    ax.scatter([0], [0], [objective((0, 0))], color="#dc2626", s=90)
+    ax.scatter([0], [0], zs=int(objective((0, 0))), color="#dc2626", s=90)
     ax.set(
         title=r"Loss surface: $z=x^2+y^2$",
         xlabel="x",
         ylabel="y",
     )
     ax.tick_params(labelsize=TICK_SIZE)
-    ax.xaxis.label.set_size(LABEL_SIZE)
-    ax.yaxis.label.set_size(LABEL_SIZE)
-    ax.zaxis.label.set_size(LABEL_SIZE)
+    ax.xaxis.label.set_fontsize(LABEL_SIZE)
+    ax.yaxis.label.set_fontsize(LABEL_SIZE)
+    ax.zaxis.label.set_fontsize(LABEL_SIZE)
     ax.view_init(elev=28, azim=-55)
     ax.set_box_aspect((1, 1, 0.8))
     # A colorbar adds a second scale without helping the first explanation.

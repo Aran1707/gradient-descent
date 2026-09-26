@@ -47,6 +47,7 @@ gradient_descent_seminar_package/
   experiments/
     mnist_experiment_plan.json
   scripts/
+    export_trajectories.py
     generate_cnn_propagation_gif.py
     generate_optimizer_gifs.py
     generate_seminar_figures.py
@@ -54,7 +55,19 @@ gradient_descent_seminar_package/
     plot_landscapes.py
     plot_optimizer_trajectories.py
   data/
-    (generated trajectories and metrics; intentionally empty after cleanup)
+    traj_adagrad.csv
+    traj_adam.csv
+    traj_adamw.csv
+    traj_gd.csv
+    traj_lion.csv
+    traj_momentum.csv
+    traj_nesterov.csv
+    traj_rmsprop.csv
+    trajectories_manifest.json
+  tests/
+    test_optim.py
+  presentation/
+    index.html
   assets/
   src/
     optimizer_interface_sketch.py
@@ -64,6 +77,7 @@ gradient_descent_seminar_package/
       base.py
       factory.py
       first_order.py
+      sam.py
     visualization/
       __init__.py
       animations.py

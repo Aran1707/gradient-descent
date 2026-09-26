@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Tuple
+from collections.abc import Iterable, Iterator
 
 import numpy as np
 
-
-Parameter = Tuple[np.ndarray, np.ndarray, str]
+Parameter = tuple[np.ndarray, np.ndarray, str]
 
 
 def iter_trainable_params(model) -> Iterator[Parameter]:

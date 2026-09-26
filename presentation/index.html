@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gradient Descent & Optimizer Variants — Seminar Deck</title>
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <script defer src="vendor/katex/katex.min.js"></script>
+  <script defer src="vendor/katex/contrib/auto-render.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #131c2e;
+      --bg-card-hover: #1b263e;
+      --border-color: #23304c;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      --accent: #38bdf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      height: 56px;
+      background: rgba(11, 15, 25, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+
+    .brand span.badge {
+      font-size: 0.75rem;
+      background: var(--primary-glow);
+      color: var(--primary);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .slide-counter {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 70px;
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+
+    /* Progress bar */
+    .progress-bar-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      width: 0%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Main Slide Deck Canvas */
+    main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2.2rem 2.5rem;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+      user-select: text;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+      z-index: 10;
+    }
+
+    .slide-header {
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .slide-category {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .slide-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .slide-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 2rem;
+      align-items: center;
+      min-height: 0;
+    }
+
+    .slide-body.full-width {
+      grid-template-columns: 1fr;
+    }
+
+    .text-content {
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: var(--text-main);
+      overflow-y: auto;
+      max-height: 100%;
+      padding-right: 0.75rem;
+    }
+
+    .text-content p {
+      margin-bottom: 1rem;
+    }
+
+    .text-content ul, .text-content ol {
+      margin-left: 1.4rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .text-content li {
+      margin-bottom: 0.5rem;
+    }
+
+    .text-content strong {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .text-content code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: var(--accent);
+    }
+
+    .formula-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      padding: 0.85rem 1.2rem;
+      margin: 1rem 0;
+      font-family: var(--font-mono);
+      font-size: 1rem;
+    }
+
+    .callout {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.92rem;
+      color: #bae6fd;
+    }
+
+    .callout.warning {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+    }
+
+    /* Media/Figure container */
+    .media-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      max-height: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .media-container img {
+      max-width: 100%;
+      max-height: calc(100% - 28px);
+      object-fit: contain;
+      border-radius: 6px;
+      cursor: zoom-in;
+      transition: transform 0.2s ease;
+    }
+
+    .media-container img:hover {
+      transform: scale(1.015);
+    }
+
+    .media-caption {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* Grid Overview Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .grid-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .grid-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .grid-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .grid-card.current {
+      border-color: var(--accent);
+      background: var(--bg-card-hover);
+    }
+
+    .grid-card .num {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .grid-card .title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* Image zoom overlay */
+    .zoom-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(10px);
+      z-index: 110;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      padding: 2rem;
+    }
+
+    .zoom-overlay.active {
+      display: flex;
+    }
+
+    .zoom-overlay img {
+      max-width: 95vw;
+      max-height: 92vh;
+      object-fit: contain;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+      border-radius: 8px;
+    }
+
+    /* Keyboard Shortcuts Footer Hint */
+    footer {
+      height: 34px;
+      background: var(--bg-main);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand">
+      <span>📐 UIT CS115 Seminar</span>
+      <span class="badge">Optimization & Deep Learning</span>
+    </div>
+    <div class="controls">
+      <button class="btn" id="btn-prev" title="Previous Slide (← / Backspace)">◀ Prev</button>
+      <span class="slide-counter" id="slide-indicator">1 / 25</span>
+      <button class="btn" id="btn-next" title="Next Slide (→ / Space)">Next ▶</button>
+      <button class="btn" id="btn-overview" title="Toggle Slide Grid (O)">⊞ Grid</button>
+      <button class="btn" id="btn-fullscreen" title="Fullscreen (F)">⛶ Fullscreen</button>
+    </div>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </header>
+
+  <!-- Slide Canvas -->
+  <main id="slide-deck">
+
+    <!-- Slide 1: Title -->
+    <div class="slide active">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">UIT CS115 • Mathematics for Computer Science</div>
+          <h1 class="slide-title">Gradient Descent & Optimizer Variants</h1>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Central Question:</strong> Given a loss function, a starting point, and only local gradient information, how can we reliably descend toward a minimum?</p>
+          <div class="formula-box">
+            $$\theta_{t+1} = \theta_t - \eta \cdot \nabla f(\theta_t)$$
+          </div>
+          <p><strong>Core Thesis:</strong> Gradient descent moves opposite the direction of steepest local increase. Optimizer variants modify how gradients are <em>estimated, remembered, scaled, regularized, or evaluated</em>.</p>
+          <div class="callout">
+            💡 <strong>Roadmap:</strong> Vector Calculus Foundation ➔ Gradient Descent Derivation ➔ Curvature & Stability ➔ 8 Optimizer Variants ➔ NumPy CNN on MNIST.
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/08_optimizer_family_map.svg" alt="Optimizer Family Map">
+          <div class="media-caption">Figure 08: The Family Map of Modern Optimizers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2: What is a Gradient? -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 1: Mathematical Foundations</div>
+          <h2 class="slide-title">The Gradient as a Vector Field</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p>For a scalar-valued multivariable function $f(x, y)$, the gradient $\nabla f(x, y)$ packages all partial derivatives into a vector in parameter space:</p>
+          <div class="formula-box">
+            $$f(x, y) = x^2 + y^2 \implies \nabla f(x, y) = \begin{bmatrix} 2x \\ 2y \end{bmatrix}$$
+          </div>
+          <ul>
+            <li><strong>At $(1, 2)$:</strong> $\nabla f(1, 2) = [2, 4]^T$.</li>
+            <li>The gradient vector points in the direction of <strong>steepest local increase</strong>.</li>
+            <li>Its magnitude $\|\nabla f\|$ gives the maximal instantaneous rate of change.</li>
+          </ul>
+          <div class="callout">
+            📌 <em>Key distinction:</em> The gradient lives in the parameter space (input plane), orthogonal to the contour level curves.
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/01_gradient_field_sphere.svg" alt="Gradient Field on Sphere">
+          <div class="media-caption">Figure 01: Vector field $\nabla f(x, y)$ pointing radially outward</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3: 3D Surface View -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 1: Mathematical Foundations</div>
+          <h2 class="slide-title">3D Loss Landscapes & The Spherical Bowl</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p>Visualizing the graph $z = f(x, y) = x^2 + y^2$:</p>
+          <ul>
+            <li>Convex quadratic with a unique global minimum at $(0, 0)$ where $\nabla f(0, 0) = \mathbf{0}$.</li>
+            <li>Isotropic curvature: the rate of change is symmetric in all directions ($H = 2I$).</li>
+            <li>In high-dimensional machine learning, we navigate surfaces with millions of parameters using only local gradient evaluations.</li>
+          </ul>
+          <div class="callout">
+            🎯 <strong>Objective:</strong> Reach the bottom of the bowl using the fewest and most stable steps.
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/png/02_surface_sphere_3d.png" alt="3D Surface Sphere">
+          <div class="media-caption">Figure 02: 3D bowl representation with global minimum at origin</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4: Derivation of Gradient Descent -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 1: Mathematical Foundations</div>
+          <h2 class="slide-title">Why the Negative Gradient is Downhill</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>1. Directional Derivative:</strong> Along unit vector $u$ ($\|u\|=1$):</p>
+          <div class="formula-box">
+            $$D_u f = \nabla f \cdot u = \|\nabla f\| \cos(\theta)$$
+          </div>
+          <p>By Cauchy-Schwarz, $D_u f$ is minimal (most negative) when $\cos(\theta) = -1$, meaning $u$ points directly <strong>opposite</strong> $\nabla f$.</p>
+          <p><strong>2. First-order Taylor Expansion:</strong></p>
+          <div class="formula-box">
+            $$f(\theta - \eta \nabla f) \approx f(\theta) - \eta \|\nabla f(\theta)\|^2$$
+          </div>
+          <p>For any small $\eta > 0$ and nonzero gradient, the objective is guaranteed to decrease locally!</p>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/03_gd_steps_sphere.svg" alt="GD Steps on Sphere">
+          <div class="media-caption">Figure 03: Step-by-step negative gradient descent trajectory</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 5: Exact Hand Calculation & GD Animation -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 1: Mathematical Foundations</div>
+          <h2 class="slide-title">First Step Hand Calculation & Dynamics</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Classroom Verification Exercise:</strong></p>
+          <ul>
+            <li>Start: $\theta_0 = (1, 2)$, loss $f(\theta_0) = 1^2 + 2^2 = 5.0$.</li>
+            <li>Gradient: $\nabla f(1, 2) = (2, 4)$.</li>
+            <li>Learning rate: $\eta = 0.1$.</li>
+          </ul>
+          <div class="formula-box">
+            $$\theta_1 = \begin{bmatrix} 1 \\ 2 \end{bmatrix} - 0.1 \begin{bmatrix} 2 \\ 4 \end{bmatrix} = \begin{bmatrix} 0.8 \\ 1.6 \end{bmatrix}$$
+          </div>
+          <p>New loss value: $0.8^2 + 1.6^2 = 0.64 + 2.56 = \mathbf{3.2} < 5.0$.</p>
+          <div class="callout">
+            ✅ The algebraic formula, vector step, and contour animation match precisely!
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/gradient_descent.gif" alt="Gradient Descent Animation">
+          <div class="media-caption">Animated: Gradient Descent trajectory converging to minimum</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 6: Curvature & Condition Number -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 2: Curvature & Failure Modes</div>
+          <h2 class="slide-title">The Ill-Conditioned Quadratic $x^2 + 25y^2$</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p>Consider the anisotropic quadratic landscape:</p>
+          <div class="formula-box">
+            $$f(x, y) = x^2 + 25y^2, \quad \nabla f(x, y) = \begin{bmatrix} 2x \\ 50y \end{bmatrix}, \quad H = \begin{bmatrix} 2 & 0 \\ 0 & 50 \end{bmatrix}$$
+          </div>
+          <ul>
+            <li><strong>Condition number:</strong> $\kappa = \frac{\lambda_{\max}}{\lambda_{\min}} = \frac{50}{2} = \mathbf{25}$.</li>
+            <li>Curvature is 25 times steeper along the $y$-axis than along the $x$-axis.</li>
+            <li><strong>Coordinate update:</strong> $x_{t+1} = (1 - 2\eta)x_t$, $y_{t+1} = (1 - 50\eta)y_t$.</li>
+            <li><strong>Stability condition:</strong> $|1 - 50\eta| < 1 \implies \mathbf{0 < \eta < 0.04}$.</li>
+          </ul>
+          <div class="callout warning">
+            ⚠️ <strong>Common Misconception:</strong> This is a convex problem with ONE global minimum at $(0, 0)$. Zigzagging and divergence here are caused by curvature disparity, NOT local minima traps!
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/04_learning_rate_ill_conditioned.svg" alt="Learning Rate Regimes">
+          <div class="media-caption">Figure 04: Too small, well-tuned, oscillatory, and diverging LR</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 7: Nonconvex Landscapes & Saddle Points -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 2: Curvature & Failure Modes</div>
+          <h2 class="slide-title">Local Minima vs. Saddle Points</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>1. Local vs Global Minima:</strong> $f(x, y) = (x^2 - 1)^2 + 0.2x + y^2$.</p>
+          <ul>
+            <li>Different basins of attraction trap gradient descent depending on initialization $\theta_0$.</li>
+            <li>Negative-$x$ well is global minimum; positive-$x$ well is a higher local minimum.</li>
+          </ul>
+          <p><strong>2. Saddle Points:</strong> $f(x, y) = x^2 - y^2 \implies \nabla f(0, 0) = \mathbf{0}$.</p>
+          <ul>
+            <li>Hessian has mixed eigenvalues $+2$ and $-2$.</li>
+            <li>Gradient is zero at $(0, 0)$, but it is <em>neither</em> a minimum nor a maximum!</li>
+          </ul>
+          <div class="callout">
+            🚩 <strong>Rule:</strong> Zero gradient $\nabla f = 0$ is only a stationary condition, not proof of reaching a minimum.
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/06_nonconvex_local_minima.svg" alt="Nonconvex Landscape">
+          <div class="media-caption">Figure 06: Basin of attraction trapping on nonconvex double-well</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 8: Polyak Momentum -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">Momentum: Accelerating Across Ravines</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Motivation:</strong> Vanilla GD oscillates wildly across narrow ravines while making agonizingly slow progress along the flat valley.</p>
+          <div class="formula-box">
+            $$v_t = \beta v_{t-1} + \nabla f(\theta_t)$$
+            $$\theta_{t+1} = \theta_t - \eta v_t$$
+          </div>
+          <ul>
+            <li>$v_t$ acts like physical velocity ($\beta \approx 0.9$).</li>
+            <li>Oscillating gradient directions cancel out.</li>
+            <li>Persistent directions accumulate velocity: effective step size scales up to $\frac{\eta}{1 - \beta}$.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/momentum.gif" alt="Momentum Animation">
+          <div class="media-caption">Animated: Momentum dampening oscillations and accelerating downhill</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 9: Nesterov Accelerated Gradient -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">Nesterov: Look-Ahead Before Leaping</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Core Idea:</strong> Instead of evaluating gradient at the current position, evaluate where momentum is about to carry the parameter:</p>
+          <div class="formula-box">
+            $$v_t = \beta v_{t-1} + \nabla f(\theta_t - \eta \beta v_{t-1})$$
+            $$\theta_{t+1} = \theta_t - \eta v_t$$
+          </div>
+          <ul>
+            <li>Anticipates future curvature to apply an early braking force.</li>
+            <li>Reduces overshooting at the bottom of steep ravines.</li>
+            <li>Theoretical convergence on convex quadratics improves from $\mathcal{O}(1/T)$ to $\mathcal{O}(1/T^2)$.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/nesterov.gif" alt="Nesterov Animation">
+          <div class="media-caption">Animated: Nesterov trajectory with predictive look-ahead braking</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 10: AdaGrad -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">AdaGrad: Coordinate-Wise Adaptive Scaling</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Motivation:</strong> Different features have wildly different gradient magnitudes (e.g. rare words vs common words in NLP).</p>
+          <div class="formula-box">
+            $$G_t = G_{t-1} + g_t \odot g_t$$
+            $$\theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{G_t} + \epsilon} \odot g_t$$
+          </div>
+          <ul>
+            <li>Frequently updated parameters receive smaller effective learning rates.</li>
+            <li>Infrequently updated parameters take larger exploratory steps.</li>
+            <li><strong>Limitation:</strong> $G_t$ monotonically grows, causing effective learning rate to decay toward zero prematurely.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/adagrad.gif" alt="AdaGrad Animation">
+          <div class="media-caption">Animated: AdaGrad dampening steps as denominator accumulates</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 11: RMSProp -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">RMSProp: Exponential Moving Average</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Fixing AdaGrad:</strong> Replace the infinite sum of squares with an exponential moving average (EMA) to forget ancient history:</p>
+          <div class="formula-box">
+            $$v_t = \rho v_{t-1} + (1 - \rho) g_t^2$$
+            $$\theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{v_t} + \epsilon} \odot g_t$$
+          </div>
+          <ul>
+            <li>$\rho \approx 0.9$ controls memory window.</li>
+            <li>Scale adapts to the <em>recent</em> magnitude of gradients.</li>
+            <li>Allows continual learning on non-stationary mini-batch objectives.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/rmsprop.gif" alt="RMSProp Animation">
+          <div class="media-caption">Animated: RMSProp equalizing coordinates on ill-conditioned ravine</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 12: Adam (Adaptive Moment Estimation) -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">Adam: Combining Momentum + RMSProp</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p>Adam tracks both 1st moment (mean) and 2nd moment (uncentered variance):</p>
+          <div class="formula-box">
+            $$m_t = \beta_1 m_{t-1} + (1 - \beta_1) g_t, \quad v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t^2$$
+            $$\hat{m}_t = \frac{m_t}{1 - \beta_1^t}, \quad \hat{v}_t = \frac{v_t}{1 - \beta_2^t}$$
+            $$\theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\hat{v}_t} + \epsilon} \hat{m}_t$$
+          </div>
+          <ul>
+            <li><strong>Bias correction ($\hat{m}_t, \hat{v}_t$):</strong> Since $m_0 = v_0 = 0$, early steps are biased toward zero. Dividing by $1 - \beta^t$ corrects this early distortion!</li>
+            <li>Standard defaults: $\beta_1 = 0.9, \beta_2 = 0.999, \epsilon = 10^{-8}$.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/adam.gif" alt="Adam Animation">
+          <div class="media-caption">Animated: Adam smoothly traversing the ill-conditioned surface</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 13: AdamW -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">AdamW: Decoupled Weight Decay</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>L2 Regularization vs Weight Decay:</strong></p>
+          <ul>
+            <li>In SGD, adding $\frac{1}{2}\lambda \|\theta\|^2$ to loss is mathematically identical to weight decay.</li>
+            <li>In Adam, gradients of L2 penalty get scaled inversely by $\sqrt{v_t}$:
+              $$\nabla L_{reg} = g_t + \lambda \theta \implies \text{decay} \propto \frac{\lambda \theta}{\sqrt{v_t}}$$
+              Parameters with large historical gradients get <em>less</em> regularized!
+            </li>
+          </ul>
+          <div class="formula-box">
+            $$\theta_{t+1} = (1 - \eta \lambda) \theta_t - \frac{\eta}{\sqrt{\hat{v}_t} + \epsilon} \hat{m}_t$$
+          </div>
+          <p>AdamW restores true weight decay by applying decay <em>directly to weights</em> independent of gradient statistics.</p>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/adamw.gif" alt="AdamW Animation">
+          <div class="media-caption">Animated: AdamW regularization with decoupled weight shrinkage</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 14: Modern Optimizers: Lion & SAM -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">Modern Frontiers: Lion & SAM</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>1. Lion (EvoLved Sign Momentum):</strong></p>
+          <div class="formula-box">
+            $$c_t = \beta_1 m_{t-1} + (1 - \beta_1) g_t, \quad \theta_{t+1} = \theta_t - \eta \operatorname{sign}(c_t)$$
+            $$m_t = \beta_2 m_{t-1} + (1 - \beta_2) g_t$$
+          </div>
+          <p>Tracks only 1st moment ($50\%$ less state memory). Update magnitude is uniform per coordinate via $\operatorname{sign}(\cdot)$.</p>
+          <p><strong>2. SAM (Sharpness-Aware Minimization):</strong></p>
+          <div class="formula-box">
+            $$\min_w \max_{\|\epsilon\| \le \rho} L(w + \epsilon)$$
+          </div>
+          <p>Searches for flat valleys rather than sharp ravines by calculating gradient at a perturbed worst-case neighbor $w + \rho \frac{\nabla L}{\|\nabla L\|}$.</p>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/lion.gif" alt="Lion Animation">
+          <div class="media-caption">Animated: Lion making discrete-magnitude sign-based steps</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 15: Unified Optimizer Comparison -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 3: The Optimizer Family</div>
+          <h2 class="slide-title">Head-to-Head Trajectory Comparison</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Identical Conditions:</strong> All 8 optimizers launched from exact same start point $(2.8, 1.0)$ on $f(x, y) = x^2 + 25y^2$:</p>
+          <ul>
+            <li><strong>SGD:</strong> Strong oscillations in $y$ before slow progress in $x$.</li>
+            <li><strong>Momentum & Nesterov:</strong> Momentum carries through oscillations smoothly into the valley.</li>
+            <li><strong>AdaGrad & RMSProp:</strong> Rapidly scale down the steep $y$ direction to equalize motion.</li>
+            <li><strong>Adam & AdamW:</strong> Direct, efficient descent straight to the global minimum $(0, 0)$.</li>
+            <li><strong>Lion:</strong> Distinct staircase trajectory due to $\operatorname{sign}(\cdot)$ operations.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/05_optimizer_trajectories_ill_conditioned.svg" alt="Optimizer Trajectories">
+          <div class="media-caption">Figure 05: Synchronized trajectories on identical ill-conditioned axes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 16: CNN Application & Architecture -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 4: Real-World Application</div>
+          <h2 class="slide-title">From 2D Toys to Neural Networks: NumPy CNN</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Core Concept: Clean Separation of Concerns</strong></p>
+          <div class="formula-box">
+            $$\text{Forward Pass} \to \text{Backpropagation} (\nabla_W L) \to \text{Optimizer.step()}$$
+          </div>
+          <ul>
+            <li><strong>Network Architecture:</strong>
+              <ul>
+                <li>Input: $1 \times 28 \times 28$ MNIST digits.</li>
+                <li>Conv2D + ReLU + MaxPool (16 filters, $3 \times 3$).</li>
+                <li>Conv2D + ReLU + MaxPool (32 filters, $3 \times 3$).</li>
+                <li>Dense 128 + ReLU + Dropout $\to$ Dense 10.</li>
+              </ul>
+            </li>
+            <li>Total trainable parameters: <strong>206,922</strong>.</li>
+            <li>Backpropagation provides gradients; optimizers decide the step!</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/09_numpy_cnn_architecture.svg" alt="CNN Architecture">
+          <div class="media-caption">Figure 09: Architectural pipeline of the NumPy CNN</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 17: CNN Forward & Backward Propagation -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 4: Real-World Application</div>
+          <h2 class="slide-title">Forward Evaluation vs. Backward Differentiation</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>The Engine Behind Deep Learning:</strong></p>
+          <ul>
+            <li><strong>Forward propagation:</strong> Features flow from left to right through convolutional kernels, spatial pooling, and dense projections to compute cross-entropy loss.</li>
+            <li><strong>Backward propagation:</strong> The scalar loss error signal flows right to left using the multivariable chain rule:
+              $$\frac{\partial L}{\partial W} = \frac{\partial L}{\partial \text{out}} \cdot \frac{\partial \text{out}}{\partial W}$$
+            </li>
+            <li>Optimizers update all 206,922 parameters in-place using their designated algorithm.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/gif/cnn_forward_backward.gif" alt="CNN Forward Backward GIF">
+          <div class="media-caption">Animated: Signal propagation through convolutional & dense layers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 18: Controlled Experimentation Protocol -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Part 4: Real-World Application</div>
+          <h2 class="slide-title">Scientific Evaluation Methodology</h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="text-content">
+          <p><strong>Fair Comparison Principles:</strong></p>
+          <ul>
+            <li><strong>No Test Leakage:</strong> Official test set is evaluated <em>strictly once</em> after training finishes; validation split is used for per-epoch monitoring.</li>
+            <li><strong>Controlled Variables:</strong> Same weight initialization seed, same batch sequence, identical parameter budgets.</li>
+            <li><strong>Multiple Seeds:</strong> Report mean and variance across seeds (e.g. seeds 0, 1, 2) rather than cherry-picking one lucky run.</li>
+            <li><strong>Compute Cost Awareness:</strong> Second-order or two-pass methods (like SAM) take roughly $2\times$ the wall-clock time per step.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="../figures/svg/10_training_loss_template.svg" alt="Training Loss Template">
+          <div class="media-caption">Figure 10: Loss & accuracy tracking curves template</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 19: Summary & Key Takeaways -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category">Conclusion</div>
+          <h2 class="slide-title">What Every Student Should Remember</h2>
+        </div>
+      </div>
+      <div class="slide-body full-width">
+        <div class="text-content" style="columns: 2; column-gap: 2.5rem;">
+          <p><strong>1. Calculus Reality:</strong> The gradient is a vector of partial derivatives pointing in the direction of steepest local increase.</p>
+          <p><strong>2. Negative Gradient:</strong> Proved downhill via Cauchy-Schwarz and 1st-order Taylor approximation.</p>
+          <p><strong>3. Curvature Determines Stability:</strong> Condition number limits the maximum stable learning rate ($\eta < 2 / \lambda_{\max}$).</p>
+          <p><strong>4. Local Minima vs Curvature:</strong> Ill-conditioned quadratics cause oscillations; nonconvex functions cause basin trapping; saddle points fool the zero-gradient test.</p>
+          <p><strong>5. Momentum:</strong> Smooths oscillations and builds speed across valleys.</p>
+          <p><strong>6. Adaptive Scaling:</strong> Normalizes coordinate disparities; RMSProp bounds history; Adam combines momentum with adaptive variance.</p>
+          <p><strong>7. No Free Lunch:</strong> No optimizer is universally best across all architectures, datasets, and hyperparameters!</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Keyboard Shortcuts Footer -->
+  <footer>
+    <div>
+      Navigate: <kbd>←</kbd> / <kbd>→</kbd> or <kbd>Space</kbd> | Grid: <kbd>O</kbd> | Fullscreen: <kbd>F</kbd> | Click images to zoom
+    </div>
+    <div>UIT CS115 Seminar Package • 2026</div>
+  </footer>
+
+  <!-- Grid Overview Modal -->
+  <div class="modal-overlay" id="modal-overview">
+    <div class="modal-header">
+      <div class="modal-title">Slide Overview & Quick Navigation</div>
+      <button class="btn" id="btn-close-modal">✕ Close (Esc)</button>
+    </div>
+    <div class="grid-overview" id="grid-cards-container"></div>
+  </div>
+
+  <!-- Zoom Overlay -->
+  <div class="zoom-overlay" id="zoom-overlay">
+    <img id="zoomed-image" src="" alt="Enlarged view">
+  </div>
+
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const indicator = document.getElementById('slide-indicator');
+      const progressBar = document.getElementById('progress-bar');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+      const btnOverview = document.getElementById('btn-overview');
+      const btnFullscreen = document.getElementById('btn-fullscreen');
+      const modalOverview = document.getElementById('modal-overview');
+      const btnCloseModal = document.getElementById('btn-close-modal');
+      const gridCardsContainer = document.getElementById('grid-cards-container');
+      const zoomOverlay = document.getElementById('zoom-overlay');
+      const zoomedImage = document.getElementById('zoomed-image');
+
+      let currentIndex = 0;
+
+      function updateSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= slides.length) index = slides.length - 1;
+
+        slides[currentIndex].classList.remove('active');
+        currentIndex = index;
+        slides[currentIndex].classList.add('active');
+
+        indicator.textContent = `${currentIndex + 1} / ${slides.length}`;
+        const pct = ((currentIndex + 1) / slides.length) * 100;
+        progressBar.style.width = `${pct}%`;
+
+        // Render math if katex is loaded
+        if (window.renderMathInElement) {
+          renderMathInElement(slides[currentIndex], {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false }
+            ],
+            throwOnError: false
+          });
+        }
+      }
+
+      function nextSlide() {
+        if (currentIndex < slides.length - 1) updateSlide(currentIndex + 1);
+      }
+
+      function prevSlide() {
+        if (currentIndex > 0) updateSlide(currentIndex - 1);
+      }
+
+      btnNext.addEventListener('click', nextSlide);
+      btnPrev.addEventListener('click', prevSlide);
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        if (modalOverview.classList.contains('active')) {
+          if (e.key === 'Escape') closeModal();
+          return;
+        }
+        if (zoomOverlay.classList.contains('active')) {
+          if (e.key === 'Escape') closeZoom();
+          return;
+        }
+
+        switch (e.key) {
+          case 'ArrowRight':
+          case ' ':
+          case 'PageDown':
+            e.preventDefault();
+            nextSlide();
+            break;
+          case 'ArrowLeft':
+          case 'Backspace':
+          case 'PageUp':
+            e.preventDefault();
+            prevSlide();
+            break;
+          case 'Home':
+            e.preventDefault();
+            updateSlide(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            updateSlide(slides.length - 1);
+            break;
+          case 'o':
+          case 'O':
+            e.preventDefault();
+            toggleModal();
+            break;
+          case 'f':
+          case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+        }
+      });
+
+      // Fullscreen
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      btnFullscreen.addEventListener('click', toggleFullscreen);
+
+      // Slide Grid Overview
+      function buildOverview() {
+        gridCardsContainer.innerHTML = '';
+        slides.forEach((slide, idx) => {
+          const title = slide.querySelector('.slide-title')?.textContent || `Slide ${idx + 1}`;
+          const cat = slide.querySelector('.slide-category')?.textContent || '';
+          const card = document.createElement('div');
+          card.className = `grid-card ${idx === currentIndex ? 'current' : ''}`;
+          card.innerHTML = `
+            <div class="num">${cat || `SLIDE ${idx + 1}`} • #${idx + 1}</div>
+            <div class="title">${title}</div>
+          `;
+          card.addEventListener('click', () => {
+            updateSlide(idx);
+            closeModal();
+          });
+          gridCardsContainer.appendChild(card);
+        });
+      }
+
+      function toggleModal() {
+        if (modalOverview.classList.contains('active')) {
+          closeModal();
+        } else {
+          buildOverview();
+          modalOverview.classList.add('active');
+        }
+      }
+
+      function closeModal() {
+        modalOverview.classList.remove('active');
+      }
+
+      btnOverview.addEventListener('click', toggleModal);
+      btnCloseModal.addEventListener('click', closeModal);
+
+      // Image Zoom
+      document.querySelectorAll('.media-container img').forEach(img => {
+        img.addEventListener('click', () => {
+          zoomedImage.src = img.src;
+          zoomOverlay.classList.add('active');
+        });
+      });
+
+      function closeZoom() {
+        zoomOverlay.classList.remove('active');
+      }
+      zoomOverlay.addEventListener('click', closeZoom);
+
+      // Initialize KaTeX on page load
+      window.addEventListener('load', () => {
+        updateSlide(0);
+      });
+    })();
+  </script>
+</body>
+</html>

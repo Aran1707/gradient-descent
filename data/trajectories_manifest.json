@@ -1,0 +1,169 @@
+{
+  "objective": "ill-conditioned",
+  "start": [
+    2.8,
+    1.0
+  ],
+  "trajectories": [
+    {
+      "key": "gd",
+      "optimizer": "sgd",
+      "lr": 0.03,
+      "weight_decay": 0.0,
+      "steps_budget": 36,
+      "steps_recorded": 36,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.301828858281915,
+        1.4551915228366852e-11
+      ],
+      "final_loss": 0.09110065969176434,
+      "status": "completed",
+      "file": "traj_gd.csv"
+    },
+    {
+      "key": "momentum",
+      "optimizer": "momentum",
+      "lr": 0.006,
+      "weight_decay": 0.0,
+      "steps_budget": 55,
+      "steps_recorded": 55,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.053263226523805565,
+        0.056212167337480815
+      ],
+      "final_loss": 0.08183216521914985,
+      "status": "completed",
+      "file": "traj_momentum.csv"
+    },
+    {
+      "key": "nesterov",
+      "optimizer": "nesterov",
+      "lr": 0.008,
+      "weight_decay": 0.0,
+      "steps_budget": 55,
+      "steps_recorded": 55,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.16392506540816038,
+        0.020738736527163217
+      ],
+      "final_loss": 0.037623806887647,
+      "status": "completed",
+      "file": "traj_nesterov.csv"
+    },
+    {
+      "key": "adagrad",
+      "optimizer": "adagrad",
+      "lr": 0.3,
+      "weight_decay": 0.0,
+      "steps_budget": 45,
+      "steps_recorded": 45,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.3734491897084094,
+        3.045712876679155e-05
+      ],
+      "final_loss": 0.13946432048478488,
+      "status": "completed",
+      "file": "traj_adagrad.csv"
+    },
+    {
+      "key": "rmsprop",
+      "optimizer": "rmsprop",
+      "lr": 0.07,
+      "weight_decay": 0.0,
+      "steps_budget": 45,
+      "steps_recorded": 45,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.15294805359260827,
+        -4.2163997259181867e-17
+      ],
+      "final_loss": 0.02339310709776737,
+      "status": "completed",
+      "file": "traj_rmsprop.csv"
+    },
+    {
+      "key": "adam",
+      "optimizer": "adam",
+      "lr": 0.1,
+      "weight_decay": 0.0,
+      "steps_budget": 45,
+      "steps_recorded": 45,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        -0.17615103407499882,
+        0.05727859611651375
+      ],
+      "final_loss": 0.113050126132659,
+      "status": "completed",
+      "file": "traj_adam.csv"
+    },
+    {
+      "key": "adamw",
+      "optimizer": "adamw",
+      "lr": 0.1,
+      "weight_decay": 0.02,
+      "steps_budget": 45,
+      "steps_recorded": 45,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        -0.1887291773726346,
+        0.05185163225175711
+      ],
+      "final_loss": 0.10283349657103782,
+      "status": "completed",
+      "file": "traj_adamw.csv"
+    },
+    {
+      "key": "lion",
+      "optimizer": "lion",
+      "lr": 0.04,
+      "weight_decay": 0.0,
+      "steps_budget": 55,
+      "steps_recorded": 55,
+      "objective": "ill-conditioned",
+      "start": [
+        2.8,
+        1.0
+      ],
+      "final_point": [
+        0.5999999999999979,
+        -0.08000000000000032
+      ],
+      "final_loss": 0.5199999999999987,
+      "status": "completed",
+      "file": "traj_lion.csv"
+    }
+  ]
+}

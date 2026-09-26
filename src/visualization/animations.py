@@ -5,13 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
-from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch
 import numpy as np
+from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.patches import Circle, FancyArrowPatch
 
 from landscapes.objectives import OBJECTIVES
 from optimizers import build_optimizer
-
 
 ANIMATION_SIZE = (8, 4.5)
 ANIMATION_LRS = {
@@ -111,7 +110,6 @@ def make_optimizer_animation(
     y_grid = np.linspace(-3.2, 3.2, 220)
     x_mesh, y_mesh = np.meshgrid(x_grid, y_grid)
     values = objective((x_mesh, y_mesh))
-    learning_rate = ANIMATION_LRS[optimizer_name]
 
     frames = []
     for index in range(steps):
@@ -213,8 +211,8 @@ def make_optimizer_animation(
         )
         ax.set_aspect("equal", adjustable="box")
         ax.tick_params(labelsize=11)
-        ax.xaxis.label.set_size(14)
-        ax.yaxis.label.set_size(14)
+        ax.xaxis.label.set_fontsize(14)
+        ax.yaxis.label.set_fontsize(14)
         ax.grid(alpha=0.16)
 
     animation = FuncAnimation(
@@ -335,7 +333,7 @@ def make_cnn_propagation_animation(
         + [("update", len(CNN_BLOCKS) - 1)]
     )
     node_sets = []
-    for x_position, (_, _, abbreviated) in zip(CNN_STAGE_X, CNN_BLOCKS):
+    for x_position, (_, _, abbreviated) in zip(CNN_STAGE_X, CNN_BLOCKS, strict=True):
         nodes, ellipsis_y = _cnn_stage_nodes(x_position, abbreviated)
         node_sets.append((nodes, ellipsis_y))
 
@@ -374,8 +372,8 @@ def make_cnn_propagation_animation(
                 masked_nodes=masked_nodes,
             )
 
-        for block_index, ((title, subtitle, abbreviated), x_position) in enumerate(
-            zip(CNN_BLOCKS, CNN_STAGE_X)
+        for block_index, ((title, subtitle, _abbreviated), x_position) in enumerate(
+            zip(CNN_BLOCKS, CNN_STAGE_X, strict=True)
         ):
             active = (
                 (phase == "forward" and block_index <= index)
@@ -392,7 +390,7 @@ def make_cnn_propagation_animation(
                 facecolor, edgecolor = "#f8fafc", "#64748b"
 
             nodes, ellipsis_y = node_sets[block_index]
-            for node_index, node in enumerate(nodes):
+            for node in nodes:
                 masked = phase == "dropout" and np.array_equal(node, dropout_node)
                 node_facecolor = "#e5e7eb" if masked else facecolor
                 node_edgecolor = "#9ca3af" if masked else edgecolor

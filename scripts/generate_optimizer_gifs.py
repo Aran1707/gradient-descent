@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT / "src"

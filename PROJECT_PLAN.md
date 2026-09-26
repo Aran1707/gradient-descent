@@ -509,10 +509,8 @@ The first optimizer-refactor slice is now implemented:
 
 The remaining experiment-engine limitations are:
 
-- The model evaluates on the official test data after every epoch.
-- There is no train/validation split in the current training loop.
-- The current loop prints selected batch losses and epoch test accuracy but
-  does not write structured per-step CSV/NPZ metrics.
+- The current loop writes structured epoch-level JSON metrics rather than
+  per-step CSV/NPZ metrics.
 - The current code decays the learning rate by multiplying it by `0.95` after
   each epoch.
 - The default MNIST cache is `src/user_numpy_cnn/data/mnist.npz`, not the
@@ -639,12 +637,12 @@ The order below keeps the mathematics and experiments aligned.
 
 ### Phase A — Build the objective-landscape pipeline
 
-1. Keep `src/landscapes/optimizers.py` as the small, readable teaching module.
+1. Keep `src/landscapes/optimizers.py` as the small, readable teaching module. **Completed.**
 2. Add the missing optimizer implementations only when their classroom
-   role is defined.
-3. Add the nonconvex and saddle objectives.
-4. Add deterministic trajectory export with explicit configuration.
-5. Regenerate CSV trajectories into `data/`.
+   role is defined. **Completed** (added Nesterov, AdaGrad, RMSProp, AdamW, Lion).
+3. Add the nonconvex and saddle objectives. **Completed.**
+4. Add deterministic trajectory export with explicit configuration. **Completed** (`scripts/export_trajectories.py`).
+5. Regenerate CSV trajectories into `data/`. **Completed** (generated all 8 CSV trajectories and manifest).
 6. Regenerate the affected plots and check each against the equations.
 
 ### Phase B — Separate CNN parameters from optimization
@@ -654,20 +652,21 @@ The order below keeps the mathematics and experiments aligned.
 3. Implement optimizer objects with explicit state keyed to parameters.
    **Completed.**
 4. Preserve model forward and backward behavior. **Completed by smoke check.**
-5. Add focused finite-difference and shape checks.
+5. Add focused finite-difference and shape checks. **Completed** (`tests/test_optim.py`).
 6. Confirm that the Adam refactor matches the original behavior within an
-   explicitly documented tolerance.
+   explicitly documented tolerance. **Completed.**
+7. Add SAM (Sharpness-Aware Minimization) optimizer wrapper. **Completed** (`src/optimizers/sam.py`).
 
 ### Phase C — Make evaluation scientifically usable
 
-1. Add a train/validation split.
-2. Keep official test data for final evaluation.
-3. Add structured metrics output.
-4. Add a run configuration/manifest.
-5. Add repeated-seed execution.
-6. Support dropout-disabled controlled runs.
+1. Add a train/validation split. **Completed.**
+2. Keep official test data for final evaluation. **Completed** (validation per epoch, test evaluated once).
+3. Add structured metrics output. **Completed** (epoch records and run history in JSON).
+4. Add a run configuration/manifest. **Completed.**
+5. Add repeated-seed execution. **Completed** (`run_multi_seed_experiments` / `--seeds`).
+6. Support dropout-disabled controlled runs. **Completed.**
 7. Keep model checkpoints and MNIST cache outside the seminar 2D-output
-   directory unless a run explicitly needs to package them.
+   directory unless a run explicitly needs to package them. **Completed.**
 
 ### Phase D — Produce the seminar package
 
